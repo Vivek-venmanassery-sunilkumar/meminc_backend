@@ -59,7 +59,6 @@ class Customer(models.Model):
     last_name = models.CharField(max_length= 100)
     phone_number = models.CharField(max_length=13, unique=True)  
     profile_picture = models.ImageField(upload_to=customer_profile_pic_path, null=True, blank=True)
-    is_verified = models.BooleanField(default = False)
 
     def save(self, *args, **kwargs):
         if not self.user.is_blocked:
@@ -95,13 +94,14 @@ class Vendor(models.Model):
     phone_number = models.CharField(max_length=15)
     profile_picture = models.ImageField(upload_to=vendor_profile_pic_path, null=True, blank=True)
     is_verified = models.BooleanField(default = False)
+    is_verified_by_admin = models.BooleanField(default = False)
 
     @property
-    def is_active(self):
-        return self.is_verified and self.user.is_active
+    def is_active_completely(self):
+        return self.is_verified_by_admin and not self.user.is_blocked
     
     def save(self, *args, **kwargs):
-        if self.is_verified and not self.user.is_blocked:
+        if self.is_active_completely:
             self.user.is_active = True
         else:
             self.user.is_active = False

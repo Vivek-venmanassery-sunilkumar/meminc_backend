@@ -9,7 +9,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields =['email', 'password', 'role']
-        extra_kwargs = {'password': {'write_only': True}}
+        extra_kwargs = {'password': {'write_only': True},
+                        'email':{'validators':[]}}
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -33,7 +34,14 @@ class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = ['user','email', 'password', 'first_name', 'last_name', 'phone_number']
+        extra_kwargs = {
+            'phone_number': {'validators': []}
+        }
 
+    def validate_phone_number(self, value):
+        if Customer.objects.filter(phone_number = value).exists():
+            raise serializers.ValidationError("This phone number is already in use")
+        return value
     def create(self, validated_data):
         email = validated_data.pop('email')
         password = validated_data.pop('password')
@@ -50,7 +58,7 @@ class VendorAddressSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(read_only = True)
     class Meta:
         model = VendorAddress
-        fields = ['street_address', 'city', 'state', 'country', 'pincode']
+        fields = ['vendor','street_address', 'city', 'state', 'country', 'pincode']
     
     def validate_pincode(self,value):
         if len(value) != 6:
@@ -70,7 +78,7 @@ class VendorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vendor
-        fields = ['email','password', 'first_name', 'last_name', 'phone_number', 'company_name', 'street_address', 'city', 'state', 'country', 'pincode']
+        fields = ['user','email','password', 'first_name', 'last_name', 'phone_number', 'company_name', 'street_address', 'city', 'state', 'country', 'pincode']
 
     def create(self, validated_data):   
         email = validated_data.pop('email')
