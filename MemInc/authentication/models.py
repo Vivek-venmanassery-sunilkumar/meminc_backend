@@ -2,6 +2,14 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+import os
+
+
+def customer_profile_pic_path(instance, filename):
+    return os.path.join('profile_pictures/customers', f"{instance.user.id}_{filename}")
+
+def vendor_profile_pic_path(instance, filename):
+    return os.path.join('profile_pictures/vendors', f"{instance.user.id}_{filename}")
 
 
 class CustomUserManager(BaseUserManager):
@@ -36,6 +44,7 @@ class CustomUser(AbstractBaseUser):
     created_at = models.DateTimeField(default = timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 
@@ -48,7 +57,8 @@ class Customer(models.Model):
     user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE, related_name = 'customer_profile')
     first_name = models.CharField(max_length = 100)
     last_name = models.CharField(max_length= 100)
-    phone_number = models.CharField(max_length=15, unique=True)
+    phone_number = models.CharField(max_length=13, unique=True)  
+    profile_picture = models.ImageField(upload_to=customer_profile_pic_path, null=True, blank=True)
     is_verified = models.BooleanField(default = False)
 
     def save(self, *args, **kwargs):
@@ -57,18 +67,33 @@ class Customer(models.Model):
         else:
             self.user.is_active = False
         self.user.save()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
     
 
+    
+class CustomerAddress(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name = 'customer_addresses')
+    street_address = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    pincode = models.CharField(max_length=20)
 
+    def __str__(self):
+        return f"{self.street_address}, {self.city}, {self.state}, {self.country}"
+
+
+    
 class Vendor(models.Model):
     user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE, related_name='vendor_profile')
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     company_name = models.CharField(max_length=200, unique=True)
     phone_number = models.CharField(max_length=15)
+    profile_picture = models.ImageField(upload_to=vendor_profile_pic_path, null=True, blank=True)
     is_verified = models.BooleanField(default = False)
 
     @property
@@ -83,19 +108,9 @@ class Vendor(models.Model):
 
         self.user.save()
         super().save(*args, **kwargs)
-    
-class CustomerAddress(models.Model):
-    customer = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name = 'customer_addresses')
-    street_address = models.CharField(max_length=100)
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
-    pincode = models.CharField(max_length=20)
 
-    def __str__(self):
-        return f"{self.street_address}, {self.city}, {self.state}, {self.country}"
 class VendorAddress(models.Model):
-    vendor = models.OneToOneField(get_user_model(), on_delete = models.CASCADE, related_name = 'vendor_address')
+    vendor = models.OneToOneField(Vendor, on_delete = models.CASCADE, related_name = 'vendor_address')
     street_address = models.CharField(max_length = 100)
     city = models.CharField(max_length = 100)
     state = models.CharField(max_length = 100)
