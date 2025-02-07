@@ -55,7 +55,6 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class VendorAddressSerializer(serializers.ModelSerializer):
-    vendor = serializers.PrimaryKeyRelatedField(read_only = True)
     class Meta:
         model = VendorAddress
         fields = ['vendor','street_address', 'city', 'state', 'country', 'pincode']
@@ -90,7 +89,6 @@ class VendorSerializer(serializers.ModelSerializer):
         state = validated_data.pop('state')
         country = validated_data.pop('country')
         pincode = validated_data.pop('pincode')
-        address_data = {'street_address': street_address, 'city': city, 'state': state, 'country': country, 'pincode': pincode}
 
         with transaction.atomic():
 
@@ -99,8 +97,7 @@ class VendorSerializer(serializers.ModelSerializer):
             user = user_serializer.save()
             vendor = Vendor.objects.create(user = user, **validated_data)
 
-            address_data['vendor'] = vendor.id
-
+            address_data = {'vendor': vendor.id, 'street_address': street_address, 'city': city, 'state': state, 'country': country, 'pincode': pincode}
             vendor_address = VendorAddressSerializer(data = address_data)
             vendor_address.is_valid(raise_exception = True)
             vendor_address.save()   
