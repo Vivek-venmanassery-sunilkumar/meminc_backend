@@ -52,9 +52,9 @@ class ResendOtp(APIView):
         if not cache_data:
             return Response({'error': 'Registration session expired.Try again','registration_timeout': True}, status=status.HTTP_400_BAD_REQUEST)
         attempts = cache_data['attempts']
-        if attempts > 3:
+        if attempts > 2:
             return Response({
-                'error':'Maximum otp resend attempts reached. Please start new registration',
+                'error':'Registration attempts for the current session expired.Try again.',
                 'registration_timeout': True
             }, status= status.HTTP_429_TOO_MANY_REQUESTS)
         
@@ -78,7 +78,7 @@ class ResendOtp(APIView):
         return Response({
             "message": "Please check your registered email for otp.",
             'registered_email': email,
-            'resend_attempts_remaining': 3-attempts
+            'resend_attempts_remaining': 3-attempts+1
         }, status=status.HTTP_200_OK)
         
         
