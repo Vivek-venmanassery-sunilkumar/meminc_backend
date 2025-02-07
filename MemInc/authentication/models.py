@@ -37,12 +37,13 @@ class CustomUser(AbstractBaseUser):
     ]
     
     email = models.EmailField(unique = True)
-    role = models.CharField(max_length=20, choices = ROLE_CHOICES, default='customer')
+    role = models.CharField(max_length=20, choices = ROLE_CHOICES, default='admin')
     is_active = models.BooleanField(default = True)
     is_superuser = models.BooleanField(default = False)
     is_blocked = models.BooleanField(default = False)
     created_at = models.DateTimeField(default = timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    is_verified = models.BooleanField(default = True)
 
 
     USERNAME_FIELD = 'email'
@@ -93,18 +94,8 @@ class Vendor(models.Model):
     company_name = models.CharField(max_length=200, unique=True)
     phone_number = models.CharField(max_length=15)
     profile_picture = models.ImageField(upload_to=vendor_profile_pic_path, null=True, blank=True)
-    is_verified = models.BooleanField(default = False)
-    is_verified_by_admin = models.BooleanField(default = False)
-
-    @property
-    def is_active_completely(self):
-        return self.is_verified_by_admin and not self.user.is_blocked
     
     def save(self, *args, **kwargs):
-        if self.is_active_completely:
-            self.user.is_active = True
-        else:
-            self.user.is_active = False
 
         self.user.save()
         super().save(*args, **kwargs)

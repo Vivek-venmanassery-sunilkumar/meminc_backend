@@ -6,6 +6,9 @@ from .serializers import CustomerSerializer,VendorSerializer
 from django.core.cache import cache
 from django.core.mail import send_mail
 import random
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 
 
@@ -161,3 +164,49 @@ class OtpValidation(APIView):
 
 
 
+class LoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        user = authenticate(request, username = email, password = password)
+
+        if user is not None:
+            if not user.is_blocked and user.is_verified:
+                refresh = RefreshToken.for_user(user)
+                access_token = refresh.access_token
+
+                access_token['role'] = user.role
+                if user.role == 'customer':
+                    first_name = user.customer_profile.first_name
+                    last_name = user.customer_profile.last_name
+                elif user.role == 'vendor':
+                    first_name = user.vendor_profile.first_name
+                    last_name = user.vendor_profile.last_name
+
+                response = Response({
+                    'message':'Login successfull',
+                    'role': user.role,
+                    'first_name': first_name,
+                    'last_name': last_name
+                }, status = status.HTTP_200_OK)
+                
+                response.set_cookie(
+                    key = 'access_token',
+                    value = str(access_token),
+                    httponly = True,
+                    secure = True,
+                    max_age = 60*15
+                )
+
+                response.set_cookie(
+                    key = 'refresh_token',
+                    value = str(refresh),
+                    httponly = True,
+                    max_age=60*60*24*7,
+                )
+                return response
+            else:
+                return Response({'error': 'You are not authorized'}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)

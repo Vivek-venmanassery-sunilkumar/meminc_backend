@@ -73,7 +73,7 @@ class VendorSerializer(serializers.ModelSerializer):
     city = serializers.CharField()
     state = serializers.CharField()
     country = serializers.CharField()
-    pincode = serializers.IntegerField()
+    pincode = serializers.CharField()
 
     class Meta:
         model = Vendor
@@ -82,7 +82,7 @@ class VendorSerializer(serializers.ModelSerializer):
     def create(self, validated_data):   
         email = validated_data.pop('email')
         password = validated_data.pop('password')
-        user_data = {'email': email, 'password': password, 'role': 'vendor'}
+        user_data = {'email': email, 'password': password, 'role': 'vendor', 'is_verified': False}
 
         street_address = validated_data.pop('street_address')
         city = validated_data.pop('city')
