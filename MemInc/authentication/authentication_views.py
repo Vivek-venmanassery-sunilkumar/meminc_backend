@@ -195,18 +195,22 @@ class LoginView(APIView):
                     key = 'access_token',
                     value = str(access_token),
                     httponly = True,
-                    secure = True,
-                    max_age = 60*15
+                    secure = False,
+                    max_age = 60*15,
+                    samesite='Lax',
+                    domain='localhost'
                 )
 
                 response.set_cookie(
                     key = 'refresh_token',
                     value = str(refresh),
                     httponly = True,
-                    max_age=60*60*24*7,
+                    secure = False,
+                    max_age=60*60*24*7, 
                 )
                 return response
             else:
-                return Response({'error': 'You are not authorized'}, status=status.HTTP_401_UNAUTHORIZED)
+                print("ithaano error")
+                return Response({'error': 'You are not authorized by the admin.Please wait'}, status=status.HTTP_401_UNAUTHORIZED)
         else:
             return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
