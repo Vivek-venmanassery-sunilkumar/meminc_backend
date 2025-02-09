@@ -26,6 +26,7 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_active', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('role', 'admin')
+        extra_fields.setdefault('is_staff', True)
 
         return self.create_user(email,password,**extra_fields)
 
@@ -37,13 +38,14 @@ class CustomUser(AbstractBaseUser):
     ]
     
     email = models.EmailField(unique = True)
-    role = models.CharField(max_length=20, choices = ROLE_CHOICES, default='admin')
+    role = models.CharField(max_length=20, choices = ROLE_CHOICES, default='customer')
     is_active = models.BooleanField(default = True)
     is_superuser = models.BooleanField(default = False)
     is_blocked = models.BooleanField(default = False)
     created_at = models.DateTimeField(default = timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     is_verified = models.BooleanField(default = True)
+    is_staff = models.BooleanField(default= False)
 
 
     USERNAME_FIELD = 'email'

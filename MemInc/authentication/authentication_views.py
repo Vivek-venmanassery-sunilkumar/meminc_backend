@@ -170,6 +170,7 @@ class LoginView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, username = email, password = password)
+        print("user:", user)
 
         if user is not None:
             if not user.is_blocked and user.is_verified:
@@ -183,6 +184,35 @@ class LoginView(APIView):
                 elif user.role == 'vendor':
                     first_name = user.vendor_profile.first_name
                     last_name = user.vendor_profile.last_name
+                elif user.role == 'admin':
+                    print("I am admin")
+                    response = Response({
+                        'message': 'Login successfull',
+                        'role': user.role,
+                        'first_name': 'admin',
+                        'last_name': 'admin'
+                    }, status=status.HTTP_200_OK)
+
+                    response.set_cookie(
+                    key = 'access_token',
+                    value = str(access_token),
+                    httponly = True,
+                    path = '/',
+                    secure = False,
+                    max_age = 60*15,
+                    samesite='Lax',
+                    )
+
+                    response.set_cookie(
+                        key = 'refresh_token',
+                        value = str(refresh),
+                        path='/',
+                        httponly = True,
+                        samesite='Lax',
+                        secure = False,
+                        max_age=60*60*24*7,
+                    )
+                    return response
 
                 response = Response({
                     'message':'Login successfull',
@@ -195,18 +225,20 @@ class LoginView(APIView):
                     key = 'access_token',
                     value = str(access_token),
                     httponly = True,
+                    path = '/',
                     secure = False,
                     max_age = 60*15,
                     samesite='Lax',
-                    domain='localhost'
                 )
 
                 response.set_cookie(
                     key = 'refresh_token',
                     value = str(refresh),
+                    path='/',
                     httponly = True,
+                    samesite='Lax',
                     secure = False,
-                    max_age=60*60*24*7, 
+                    max_age=60*60*24*7,
                 )
                 return response
             else:
