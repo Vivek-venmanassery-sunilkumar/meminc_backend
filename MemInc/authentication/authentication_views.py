@@ -178,49 +178,19 @@ class LoginView(APIView):
                 access_token = refresh.access_token
 
                 access_token['role'] = user.role
-                if user.role == 'customer':
-                    first_name = user.customer_profile.first_name
-                    last_name = user.customer_profile.last_name
-                elif user.role == 'vendor':
-                    first_name = user.vendor_profile.first_name
-                    last_name = user.vendor_profile.last_name
-                elif user.role == 'admin':
-                    print("I am admin")
+                if user.role == 'admin':
                     response = Response({
-                        'message': 'Login successfull',
+                        'message': 'Login Successfull',
+                        'role':user.role,
+                    }, status = status.HTTP_200_OK)
+                else:
+                    response = Response({
+                        'message':'Login successfull',
                         'role': user.role,
-                        'first_name': 'admin',
-                        'last_name': 'admin'
-                    }, status=status.HTTP_200_OK)
-
-                    response.set_cookie(
-                    key = 'access_token',
-                    value = str(access_token),
-                    httponly = True,
-                    path = '/',
-                    secure = False,
-                    max_age = 60*15,
-                    samesite='Lax',
-                    )
-
-                    response.set_cookie(
-                        key = 'refresh_token',
-                        value = str(refresh),
-                        path='/',
-                        httponly = True,
-                        samesite='Lax',
-                        secure = False,
-                        max_age=60*60*24*7,
-                    )
-                    return response
-
-                response = Response({
-                    'message':'Login successfull',
-                    'role': user.role,
-                    'first_name': first_name,
-                    'last_name': last_name
-                }, status = status.HTTP_200_OK)
-                
+                        'first_name': user.customer_profile.first_name,
+                        'last_name': user.customer_profile.last_name
+                    }, status = status.HTTP_200_OK)
+                    
                 response.set_cookie(
                     key = 'access_token',
                     value = str(access_token),
