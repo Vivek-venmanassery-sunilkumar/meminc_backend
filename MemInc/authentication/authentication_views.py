@@ -183,13 +183,20 @@ class LoginView(APIView):
                         'message': 'Login Successfull',
                         'role':user.role,
                     }, status = status.HTTP_200_OK)
-                else:
+                elif user.role == 'customer':
                     response = Response({
                         'message':'Login successfull',
                         'role': user.role,
                         'first_name': user.customer_profile.first_name,
                         'last_name': user.customer_profile.last_name
                     }, status = status.HTTP_200_OK)
+                elif user.role == 'vendor':
+                    response = Response({
+                        'message': 'Login Successfull',
+                        'role': user.role,
+                        'first_name': user.vendor_profile.first_name,
+                        'last_name':user.vendor_profile.last_name
+                    },status=status.HTTP_200_OK)
                     
                 response.set_cookie(
                     key = 'access_token',
