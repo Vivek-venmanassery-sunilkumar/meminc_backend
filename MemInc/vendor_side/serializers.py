@@ -14,7 +14,7 @@ class categories_serializer(serializers.ModelSerializer):
 class variants_serializer(serializers.ModelSerializer):
     class Meta:
         model = Product_variants
-        fields = ['product_id', 'quantity', 'price','stock']
+        fields = ['quantity', 'price','stock']
     
     def validate_quantity(self, value):
         if value<=0:
@@ -36,11 +36,11 @@ class product_serializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(source = 'category',read_only = True)
     category = serializers.CharField(write_only = True)
     variants = variants_serializer(many=True,write_only=True)
-    vendor = serializers.PrimaryKeyRelatedField()
+    vendor = serializers.PrimaryKeyRelatedField(read_only = True)
 
     class Meta:
         model = Products
-        fields = ['category_id','category','name','description','image','variantunit','variants','vendor']
+        fields = ['category_id','category','name','description','image','variant_unit','variants','vendor']
 
     def validate_variants(self,value):
         if not value:
@@ -50,14 +50,25 @@ class product_serializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+
+        request = self.context.get('request')
+        if not request or not request.user:
+            raise serializers.ValidationError("Authentication required")
+        
+        try:
+            vendor = request.user.vendor_profile
+        except Vendor.DoesNotExist:
+            raise serializers.ValidationError("Authentication required")
+        
+
         category_name = validated_data.pop('category')
         category, created = Categories.objects.get_or_create(
-            category_iexact = category_name.lower(),
+            category__iexact = category_name.lower(),
             defaults = {'category': category_name.lower()}
         )
         variant_data_array = validated_data.pop('variants')
 
-        product = Products.objects.create(category = category, **validated_data)
+        product = Products.objects.create(category = category,vendor = vendor, **validated_data)
     
         for variant_data in variant_data_array:
             variant_serializer = variants_serializer(data = variant_data)

@@ -15,7 +15,7 @@ class Products(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(max_length=200)
     variant_unit = models.CharField(max_length=10)
-    image = models.ImageField(upload_to='products/')
+    image = models.ImageField(upload_to='products/', blank=True)
 
 
     def __str__(self):
