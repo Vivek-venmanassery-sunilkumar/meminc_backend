@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'authentication',
     'corsheaders',
     'admin_side',
+    'vendor_side',
 ]
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -161,6 +162,10 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'meminccorporation@gmail.com'
 EMAIL_HOST_PASSWORD = 'ybbm pwge blop rxsi'
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR/"media"
 
 
 
