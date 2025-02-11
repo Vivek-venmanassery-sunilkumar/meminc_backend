@@ -33,7 +33,7 @@ def list_customer(request):
 
 @api_view(['GET'])
 def list_vendor(request):
-    vendors = Vendor.objects.select_related('user').values('first_name', 'last_name', 'phone_number', 'user__id', 'user__is_blocked','user__email','user__is_verified')
+    vendors = Vendor.objects.select_related('user').values('first_name', 'last_name', 'phone_number', 'user__id', 'user__is_blocked','user__email','user__is_verified','company_name')
     paginator = custom_pagination()
     paginated_vendors = paginator.paginate_queryset(vendors, request)
 
