@@ -58,9 +58,13 @@ def product_listing_vendor(request):
         variants = product.variant_profile.all()
         variant_data = []
         for variant in variants:
+            if not product.variant_unit == 'packet of':
+                variant_name = f'{variant.quantity} {product.variant_unit}'
+            else:
+                variant_name = f'{product.variant_unit} {variant.quantity}'
             variant_data.append({
                 'id': variant.id,
-                'name': f'{variant.quantity} {product.variant_unit}',
+                'name': variant_name,
                 'price': variant.price,
                 'stock': variant.stock
             })
