@@ -3,6 +3,7 @@ from rest_framework import status
 from vendor_side.models import Products
 from rest_framework.decorators import api_view
 from admin_side.views import custom_pagination
+from authentication.serializers import CustomerSerializer
 
 
 # Create your views here.
@@ -40,3 +41,22 @@ def product_listing_customer_side(request):
     if paginated_products is not None:
         return paginator.get_paginated_response(paginated_products)
     return Response([])
+
+
+@api_view(['POST'])
+def customer_profile_update(request):
+    user = request.user
+    if not user.is_authenticated or user.is_blocked:
+        return Response({"error":"Customer is not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    customer_instance = user.customer_profile
+
+    serializer = CustomerSerializer(instance = customer_instance, data = request.data, partial = True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.save()
+    return Response(serializer.data, status = status.HTTP_200_OK)
+    
+    
+    
+   

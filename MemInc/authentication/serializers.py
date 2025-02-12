@@ -9,7 +9,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields =['email', 'password', 'role', 'is_verified']
-        extra_kwargs = {'password': {'write_only': True},
+        extra_kwargs = {'password': {'write_only': True, 'required': False},
                         'email':{'validators':[]}}
 
     def validate_email(self, value):
@@ -28,14 +28,14 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 class CustomerSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only = True)
-    email = serializers.EmailField(write_only = True)
-    password = serializers.CharField(write_only = True)
+    email = serializers.EmailField(write_only = True, required = False)
+    password = serializers.CharField(write_only = True, required = False)
 
     class Meta:
         model = Customer
-        fields = ['user','email', 'password', 'first_name', 'last_name', 'phone_number']
+        fields = ['user','email', 'password', 'first_name', 'last_name', 'phone_number','profile_picture']
         extra_kwargs = {
-            'phone_number': {'validators': []}
+            'phone_number': {'validators': []},
         }
 
     def validate_phone_number(self, value):
@@ -52,6 +52,24 @@ class CustomerSerializer(serializers.ModelSerializer):
 
         customer = Customer.objects.create(user = user, **validated_data)
         return customer
+    
+    def update(self, instance, validated_data):
+        user = instance.user
+        email = validated_data.pop('email', None)
+        password = validated_data.pop('password', None)
+
+        if email:
+            user.email = email
+        user.save()
+
+
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.phone_number = validated_data.get('phone_number', instance.phone_number)
+        instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
+        instance.save()
+
+        return instance
 
 
 class VendorAddressSerializer(serializers.ModelSerializer):
