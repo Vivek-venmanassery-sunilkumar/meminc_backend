@@ -25,6 +25,7 @@ def product_listing_customer_side(request):
                 'stock': variant.stock
             })
         product_data.append({
+            'id':product.id,
             'product_name':product.name,
             'product_image':image_url,
             'category': product.category.category,
