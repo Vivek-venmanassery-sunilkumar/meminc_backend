@@ -170,7 +170,7 @@ class LoginView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, username = email, password = password)
-        print("user:", user)
+        
 
         if user is not None:
             if not user.is_blocked and user.is_verified:
@@ -219,7 +219,7 @@ class LoginView(APIView):
                 )
                 return response
             else:
-                print("ithaano error")
+               
                 return Response({'error': 'You are not authorized by the admin.Please wait'}, status=status.HTTP_401_UNAUTHORIZED)
         else:
             return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)

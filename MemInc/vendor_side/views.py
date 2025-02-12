@@ -39,12 +39,14 @@ class Product_create_view(APIView):
 @api_view(['GET'])
 def product_listing_vendor(request):
     user = request.user
+    print("vendor_side_product_listing debug: ",user)
 
     if not user.is_authenticated or user.is_blocked:
         return Response({'error': 'The vendor is not authenticated.'}, status=status.HTTP_401_UNAUTHORIZED)
     
     try:
         vendor = user.vendor_profile
+        print(vendor)
     except Vendor.DoesNotExist:
         return Response({'error': 'Vendor not found'}, status=status.HTTP_404_NOT_FOUND)
     
@@ -53,11 +55,12 @@ def product_listing_vendor(request):
     product_data = []
     for product in products:
         image_url = request.build_absolute_uri(product.image.url) if product.image else None
-        variants = product.variant_profile
+        variants = product.variant_profile.all()
         variant_data = []
         for variant in variants:
             variant_data.append({
-                'variant_details': f'{variant.quantity} {product.variant_unit}',
+                'id': variant.id,
+                'name': f'{variant.quantity} {product.variant_unit}',
                 'price': variant.price,
                 'stock': variant.stock
             })

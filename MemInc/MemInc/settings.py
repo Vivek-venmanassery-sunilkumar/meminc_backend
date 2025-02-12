@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'admin_side',
     'vendor_side',
+    'customer_side',
 ]
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
