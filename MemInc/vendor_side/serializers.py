@@ -1,3 +1,4 @@
+
 from rest_framework import serializers
 from authentication.models import Vendor
 from .models import Products,Product_variants,Categories
@@ -37,6 +38,7 @@ class product_serializer(serializers.ModelSerializer):
     category = serializers.CharField(write_only = True)
     variants = variants_serializer(many=True,write_only=True)
     vendor = serializers.PrimaryKeyRelatedField(read_only = True)
+    image = serializers.ImageField(required = False)
 
     class Meta:
         model = Products
@@ -67,6 +69,7 @@ class product_serializer(serializers.ModelSerializer):
             defaults = {'category': category_name.lower()}
         )
         variant_data_array = validated_data.pop('variants')
+
 
         product = Products.objects.create(category = category,vendor = vendor, **validated_data)
     

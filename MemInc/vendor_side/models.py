@@ -15,7 +15,7 @@ class Products(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(max_length=200)
     variant_unit = models.CharField(max_length=10)
-    image = models.ImageField(upload_to='products/', blank=True)
+    image = models.ImageField(upload_to='products/')
 
 
     def __str__(self):
@@ -24,6 +24,7 @@ class Products(models.Model):
 class Product_variants(models.Model):
     product = models.ForeignKey(Products, on_delete=models.CASCADE, related_name='variant_profile')
     quantity = models.IntegerField()
-    price = models.IntegerField()
+    price = models.DecimalField(decimal_places=2, max_digits=5)
     stock = models.IntegerField()
+    
 
