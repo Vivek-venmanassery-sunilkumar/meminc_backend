@@ -8,6 +8,7 @@ from django.core.mail import send_mail
 import random
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import api_view
 
 
 
@@ -223,3 +224,20 @@ class LoginView(APIView):
                 return Response({'error': 'You are not authorized by the admin.Please wait'}, status=status.HTTP_401_UNAUTHORIZED)
         else:
             return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+
+@api_view(['POST'])
+def logout(request):
+    try:
+        print("Inside logout")
+        refresh_token = request.COOKIES.get('refresh_token')
+        print("Furthur inside logout", refresh_token)
+        if refresh_token:
+            response = Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
+    
+        return response
+    except Exception as e:
+        return Response({"Error":str(e)},status=status.HTTP_400_BAD_REQUEST)
