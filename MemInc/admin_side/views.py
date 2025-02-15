@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class custom_pagination(PageNumberPagination):
+class CustomPagination(PageNumberPagination):
     page_size = 10
 
     def get_paginated_response(self, data):
@@ -24,7 +24,7 @@ class custom_pagination(PageNumberPagination):
 @api_view(['GET'])
 def list_customer(request):
     customers =Customer.objects.select_related('user').values('first_name', 'last_name', 'phone_number', 'user__id', 'user__is_blocked', 'user__email')
-    paginator = custom_pagination()
+    paginator = CustomPagination()
     paginated_customers =  paginator.paginate_queryset(customers, request)
     
     if paginated_customers is not None:
@@ -34,7 +34,7 @@ def list_customer(request):
 @api_view(['GET'])
 def list_vendor(request):
     vendors = Vendor.objects.select_related('user').values('first_name', 'last_name', 'phone_number', 'user__id', 'user__is_blocked','user__email','user__is_verified','company_name')
-    paginator = custom_pagination()
+    paginator = CustomPagination()
     paginated_vendors = paginator.paginate_queryset(vendors, request)
 
     if paginated_vendors is not None:

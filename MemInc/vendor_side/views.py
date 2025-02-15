@@ -2,11 +2,11 @@ import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import product_serializer
+from .serializers import ProductSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import api_view
 from authentication.models import Vendor
-from admin_side.views import custom_pagination
+from admin_side.views import CustomPagination
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -17,23 +17,38 @@ class Product_create_view(APIView):
         if not request.user.is_authenticated or request.user.role != 'vendor':
             return Response({"error": "Only vendors can create products"}, status = status.HTTP_403_FORBIDDEN)
         
-        variants_data = request.data.get('variants', [])
+        variants_data = request.data.get('variants',[])
+        variants_parsed_data = []
         if isinstance(variants_data, str):
-            variants_data = json.loads(variants_data)
+            try:
+                variants_parsed_data = json.loads(variants_data)
+            except json.JSONDecodeError:
+                return Response({'error':'Invalid variants data. Expected a JSON array.'},status=status.HTTP_400_BAD_REQUEST)
         
+        
+        if not variants_parsed_data:
+            return Response({'error': 'At least one variant should be defined.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        image_list = request.FILES.getlist('images')
+        print(image_list)
+        if len(image_list) < 3:
+            return Response({"error":"At least 3 images are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        images_data = [{'image':image} for image in image_list] 
+        print("Variants data:",variants_data)
+        print('images_data_in_view: ', images_data)
         product_data = {
             'name': request.data.get('name'),
             'category': request.data.get('category'),
             'description': request.data.get('description'),
-            'variant_unit': request.data.get('variant_unit'),
-            'image': request.FILES.get('image'),
-            'variants':variants_data
+            'images': images_data,
+            'variants':variants_parsed_data
         }
-        serializer = product_serializer(data = product_data, context = {'request':request})
-        print(request.data)
-        if serializer.is_valid(raise_exception=True):
+        print("product_data: ",product_data)
+        serializer = ProductSerializer(data = product_data, context = {'request':request})
+        if serializer.is_valid():
             product = serializer.save()
-            return Response(product_serializer(product).data, status=status.HTTP_201_CREATED)
+            return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 @api_view(['GET'])
@@ -53,15 +68,17 @@ def product_listing_vendor(request):
     products = vendor.vendor_products.all()
     
     product_data = []
+    
     for product in products:
-        image_url = request.build_absolute_uri(product.image.url) if product.image else None
+        product_image_instance = product.product_images.first()
+        image_url = request.build_absolute_uri(product_image_instance.image.url)
         variants = product.variant_profile.all()
         variant_data = []
         for variant in variants:
-            if not product.variant_unit == 'packet of':
-                variant_name = f'{variant.quantity} {product.variant_unit}'
+            if not variant.variant_unit == 'packet of':
+                variant_name = f'{variant.quantity} {variant.variant_unit}'
             else:
-                variant_name = f'{product.variant_unit} {variant.quantity}'
+                variant_name = f'{variant.variant_unit} {variant.quantity}'
             variant_data.append({
                 'id': variant.id,
                 'name': variant_name,
@@ -76,7 +93,7 @@ def product_listing_vendor(request):
         })
 
 
-    paginator = custom_pagination()
+    paginator = CustomPagination()
     paginated_products = paginator.paginate_queryset(product_data, request)
 
     if paginated_products is not None:

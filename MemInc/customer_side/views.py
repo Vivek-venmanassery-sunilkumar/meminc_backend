@@ -2,7 +2,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from vendor_side.models import Products
 from rest_framework.decorators import api_view
-from admin_side.views import custom_pagination
+from admin_side.views import CustomPagination
 from authentication.serializers import CustomerSerializer
 
 
@@ -15,13 +15,13 @@ def product_listing_customer_side(request):
 
     product_data = []
     for product in products:
-        image_url = request.build_absolute_uri(product.image.url) if product.image else None
+        image_url = request.build_absolute_uri(product.product_images.first().image.url) 
         variants = product.variant_profile.all()
         variant_data = []
         for variant in variants:
             variant_data.append({
                 'id': variant.id,
-                'name': f'{variant.quantity} {product.variant_unit}',
+                'name': f'{variant.quantity} {variant.variant_unit}',
                 'price': variant.price,
                 'stock': variant.stock
             })
@@ -35,7 +35,7 @@ def product_listing_customer_side(request):
         })
 
 
-    paginator = custom_pagination()
+    paginator = CustomPagination()
     paginated_products = paginator.paginate_queryset(product_data, request)
 
     if paginated_products is not None:
