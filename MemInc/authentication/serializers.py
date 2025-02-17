@@ -60,20 +60,21 @@ class CustomerSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         user = instance.user
-        email = validated_data.pop('email', None)
-        password = validated_data.pop('password', None)
+        with transaction.atomic():
+            email = validated_data.pop('email', None)
+            password = validated_data.pop('password', None)
 
-        if email and email != user.email:
-            if User.objects.filter(email=email).exclude(id=user.id).exists():
-                raise serializers.ValidationError({"email": "This email is already in use."})
-            user.email = email
+            if email and email != user.email:
+                if User.objects.filter(email=email).exclude(id=user.id).exists():
+                    raise serializers.ValidationError({"email": "This email is already in use."})
+                user.email = email
 
 
-        instance.first_name = validated_data.get('first_name', instance.first_name)
-        instance.last_name = validated_data.get('last_name', instance.last_name)
-        instance.phone_number = validated_data.get('phone_number', instance.phone_number)
-        instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
-        instance.save()
+            instance.first_name = validated_data.get('first_name', instance.first_name)
+            instance.last_name = validated_data.get('last_name', instance.last_name)
+            instance.phone_number = validated_data.get('phone_number', instance.phone_number)
+            instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
+            instance.save()
 
         return instance
 
@@ -101,7 +102,33 @@ class VendorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vendor
-        fields = ['user','email','password', 'first_name', 'last_name', 'phone_number', 'company_name', 'street_address', 'city', 'state', 'country', 'pincode']
+        fields = ['user','email','password', 'first_name', 'last_name', 'phone_number', 'company_name', 'street_address', 'city', 'state', 'country', 'pincode','profile_picture']
+
+    
+
+    def validate_phone_number(self,value):
+        instance = self.instance
+        user =instance.user
+
+        if instance and instance.phone_number == value:
+            return value
+        
+
+        if Vendor.objects.filter(phone_number = value).exclude(pk = user.id if user else None).exists():
+            raise serializers.ValidationError("This phone number is already in use")
+        return value
+        
+    
+    def validate_company_nam(self, value):
+        instance = self.instance
+        user = instance.user
+
+        if instance and instance.company_name == value:
+            return value
+        
+        if Vendor.objects.filter(company_name = value).exclude(pk = user.id if user else None).exists():
+            raise serializers.ValidationError("This company already holds an account.")
+        return value
 
     def create(self, validated_data):   
         email = validated_data.pop('email')
@@ -127,3 +154,38 @@ class VendorSerializer(serializers.ModelSerializer):
             vendor_address.save()   
 
         return vendor
+    
+    def update(self,instance,validated_data):
+        user = instance.user
+
+        with transaction.atomic():
+            email = validated_data.pop('email', None)
+
+            if email and email != user.email:
+                if User.objects.filter(email = email).exclude(id =user.id).exists():
+                    raise serializers.ValidationError({"email":"This email already exists"}) 
+                user.email = email
+            user.save()
+
+            instance.first_name =validated_data.get('first_name',instance.first_name)
+            instance.last_name = validated_data.get('last_name',instance.last_name)
+            instance.phone_number = validated_data.get('phone_number',instance.phone_number)
+            instance.company_name = validated_data.get('company_name',  instance.company_name)
+            instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
+            instance.save()
+
+            vendor_address = instance.vendor_address
+
+
+            vendor_address.street_address = validated_data.get('street_address', vendor_address.street_address)
+            vendor_address.city = validated_data.get('city',vendor_address.city)
+            vendor_address.state = validated_data.get('state',vendor_address.state)
+            vendor_address.country = validated_data.get('country', vendor_address.country)
+            vendor_address.pincode = validated_data.get('pincode', vendor_address.pincode)
+            vendor_address.save()
+
+        return instance
+
+
+       
+           

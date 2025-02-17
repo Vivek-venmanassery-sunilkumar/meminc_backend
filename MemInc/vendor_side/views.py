@@ -7,6 +7,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import api_view
 from authentication.models import Vendor
 from admin_side.views import CustomPagination
+from authentication.serializers import VendorSerializer
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -99,4 +100,37 @@ def product_listing_vendor(request):
     if paginated_products is not None:
         return paginator.get_paginated_response(paginated_products)
     return Response([])
-            
+
+
+@api_view(['PATCH'])
+def vendor_profile_update(request):
+    user = request.user
+    if not user.is_authenticated or user.is_blocked or not user.is_verified:
+        return Response({"error":"Vendor is not found"},status=status.HTTP_404_NOT_FOUND)
+    
+    vendor_instance = user.vendor_profile
+    data = request.data.copy()
+
+    if 'profile_picture' not in data:
+        data.pop('profile_picture',None)
+    
+    serializer = VendorSerializer(instance = vendor_instance, data = data, partial = True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.save()
+    response = Response({
+        'role': user.role,
+        'first_name': user.vendor_profile.first_name,
+        'last_name': user.vendor_profile.last_name,
+        'email': user.email,
+        'phone_number':user.vendor_profile.phone_number,
+        'profile_picture': request.build_absolute_uri(user.vendor_profile.profile_picture.url) if user.vendor_profile.profile_picture else None,
+        'company_name': user.vendor_profile.company_name,
+        'street_address':user.vendor_profile.vendor_address.street_address,
+        'city': user.vendor_profile.vendor_address.city,
+        'country': user.vendor_profile.vendor_address.country,
+        'state': user.vendor_profile.vendor_address.state,
+        'pincode': user.vendor_profile.vendor_address.pincode,
+    },status=status.HTTP_200_OK)
+
+    return response

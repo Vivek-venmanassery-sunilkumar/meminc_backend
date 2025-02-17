@@ -201,7 +201,13 @@ class LoginView(APIView):
                         'first_name': user.vendor_profile.first_name,
                         'last_name':user.vendor_profile.last_name,
                         'phone_number': user.vendor_profile.phone_number,
-                        'profile_picture': request.build_absolute_uri(user.vendor_profile.profile_picture) if user.vendor_profile.profile_picture else None,
+                        'profile_picture': request.build_absolute_uri(user.vendor_profile.profile_picture.url) if user.vendor_profile.profile_picture else None,
+                        'company_name': user.vendor_profile.company_name,
+                        'street_address':user.vendor_profile.vendor_address.street_address,
+                        'city': user.vendor_profile.vendor_address.city,
+                        'state': user.vendor_profile.vendor_address.state,
+                        'country': user.vendor_profile.vendor_address.country,
+                        'pincode': user.vendor_profile.vendor_address.pincode,
                     },status=status.HTTP_200_OK)
                     
                 response.set_cookie(
