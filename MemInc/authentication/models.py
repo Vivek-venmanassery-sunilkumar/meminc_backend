@@ -5,11 +5,11 @@ from django.contrib.auth import get_user_model
 import os
 
 
-def customer_profile_pic_path(instance, filename):
-    return os.path.join('profile_pictures/customers', f"{instance.user.id}_{filename}")
+# def customer_profile_pic_path(instance, filename):
+#     return os.path.join('profile_pictures/customers', f"{instance.user.id}_{filename}")
 
-def vendor_profile_pic_path(instance, filename):
-    return os.path.join('profile_pictures/vendors', f"{instance.user.id}_{filename}")
+# def vendor_profile_pic_path(instance, filename):
+#     return os.path.join('profile_pictures/vendors', f"{instance.user.id}_{filename}")
 
 
 class CustomUserManager(BaseUserManager):
@@ -61,7 +61,7 @@ class Customer(models.Model):
     first_name = models.CharField(max_length = 100)
     last_name = models.CharField(max_length= 100)
     phone_number = models.CharField(max_length=13, unique=True)  
-    profile_picture = models.ImageField(upload_to=customer_profile_pic_path, null=True, blank=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/customers/', null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.user.is_blocked:
@@ -95,7 +95,7 @@ class Vendor(models.Model):
     last_name = models.CharField(max_length=100)
     company_name = models.CharField(max_length=200, unique=True)
     phone_number = models.CharField(max_length=15)
-    profile_picture = models.ImageField(upload_to=vendor_profile_pic_path, null=True, blank=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/vendors/', null=True, blank=True)
     
     def save(self, *args, **kwargs):
 

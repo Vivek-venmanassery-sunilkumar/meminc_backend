@@ -185,18 +185,23 @@ class LoginView(APIView):
                         'role':user.role,
                     }, status = status.HTTP_200_OK)
                 elif user.role == 'customer':
+                    print(request.build_absolute_uri(user.customer_profile.profile_picture.url))
                     response = Response({
                         'message':'Login successfull',
                         'role': user.role,
                         'first_name': user.customer_profile.first_name,
-                        'last_name': user.customer_profile.last_name
+                        'last_name': user.customer_profile.last_name,
+                        'phone_number': user.customer_profile.phone_number,
+                        'profile_picture': request.build_absolute_uri(user.customer_profile.profile_picture.url) if user.customer_profile.profile_picture else None,
                     }, status = status.HTTP_200_OK)
                 elif user.role == 'vendor':
                     response = Response({
                         'message': 'Login Successfull',
                         'role': user.role,
                         'first_name': user.vendor_profile.first_name,
-                        'last_name':user.vendor_profile.last_name
+                        'last_name':user.vendor_profile.last_name,
+                        'phone_number': user.vendor_profile.phone_number,
+                        'profile_picture': request.build_absolute_uri(user.vendor_profile.profile_picture) if user.vendor_profile.profile_picture else None,
                     },status=status.HTTP_200_OK)
                     
                 response.set_cookie(

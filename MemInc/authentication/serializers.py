@@ -39,7 +39,12 @@ class CustomerSerializer(serializers.ModelSerializer):
         }
 
     def validate_phone_number(self, value):
-        if Customer.objects.filter(phone_number = value).exists():
+        instance = self.instance
+        user = instance.user
+        if instance and instance.phone_number == value:
+            return value
+
+        if Customer.objects.filter(phone_number = value).exclude(pk = user.id if user else None).exists():
             raise serializers.ValidationError("This phone number is already in use")
         return value
     def create(self, validated_data):
@@ -58,9 +63,10 @@ class CustomerSerializer(serializers.ModelSerializer):
         email = validated_data.pop('email', None)
         password = validated_data.pop('password', None)
 
-        if email:
+        if email and email != user.email:
+            if User.objects.filter(email=email).exclude(id=user.id).exists():
+                raise serializers.ValidationError({"email": "This email is already in use."})
             user.email = email
-        user.save()
 
 
         instance.first_name = validated_data.get('first_name', instance.first_name)
