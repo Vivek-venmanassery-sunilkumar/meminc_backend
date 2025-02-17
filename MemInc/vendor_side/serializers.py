@@ -3,13 +3,18 @@ from rest_framework import serializers
 from authentication.models import Vendor
 from .models import Products,ProductVariants,Categories,ProductImages
 from django.db import transaction
-
+from django.core.exceptions import ValidationError 
         
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Categories
-        field = ['category']
+        fields = ['id','category','is_enabled']
+    
+    def validate_category(self, value):
+        if Categories.objects.filter(category__iexact = value.lower()).exists():
+            raise serializers.ValidationError({"error":"This category already exists."})
+        return value
 
 class VariantsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -89,10 +94,10 @@ class ProductSerializer(serializers.ModelSerializer):
         
         category_name  = validated_data.pop('category')
         print(category_name)
-        category, created = Categories.objects.get_or_create(
-            category__iexact=category_name.lower(),
-            defaults={'category': category_name.lower()}
-        )                   
+        try:
+            category = Categories.objects.get(category__iexact = category_name.lower())
+        except Categories.DoesNotExist:
+            raise ValidationError({'error':'Category does not exist.'})                 
         variant_data_array = validated_data.pop('variants')
         print("variant_data_array:",variant_data_array)
         image_data_array = validated_data.pop('images')

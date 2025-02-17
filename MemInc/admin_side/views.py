@@ -1,10 +1,13 @@
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
 from authentication.models import Customer, Vendor
 from rest_framework.pagination import PageNumberPagination 
 from rest_framework.response import Response
 from rest_framework import status
 import math
 from django.contrib.auth import get_user_model
+from vendor_side.models import Categories
+from vendor_side.serializers import CategorySerializer
 
 User = get_user_model()
 
@@ -78,3 +81,13 @@ def verify_vendor(request):
     user.save()
 
     return Response({"message":"Vendor verified"})
+
+
+class Categoryview(APIView):
+    def get(self,request):
+        user = request.user
+
+        if user and user.is_authenticated and user.role == 'admin':
+            categories = Categories.objects.all()
+            serializer = CategorySerializer(categories, many = True)
+            return Response(serializer.data, status = status.HTTP_200_OK) 
