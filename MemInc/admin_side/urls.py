@@ -7,5 +7,6 @@ urlpatterns = [
     path('vendors/', list_vendor),
     path('block_user/',block_user),
     path('verify-seller/', verify_vendor),
-    path('categories/', Categoryview.as_view())
+    path('categories/', Categoryview.as_view()),
+    path('categories/<int:id>/',Categoryview.as_view())
 ]

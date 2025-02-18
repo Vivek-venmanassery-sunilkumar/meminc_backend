@@ -87,7 +87,34 @@ class Categoryview(APIView):
     def get(self,request):
         user = request.user
 
-        if user and user.is_authenticated and user.role == 'admin':
+        if user and user.is_authenticated :
             categories = Categories.objects.all()
             serializer = CategorySerializer(categories, many = True)
             return Response(serializer.data, status = status.HTTP_200_OK) 
+        
+    
+    def post(self, request):
+        user = request.user
+
+        if user and user.is_authenticated and user.role == 'admin':
+            serializer = CategorySerializer(data = request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    def put(self, request, id):
+        user = request.user
+
+        if user and user.is_authenticated and user.role == 'admin':
+            try:
+                category_instance = Categories.objects.get(id=id )
+            except Categories.DoesNotExist:
+                return Response({"error":"Category not found"}, status=status.HTTP_404_NOT_FOUND)
+            serializer = CategorySerializer(category_instance, data = request.data, partial = True)
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status = status.HTTP_201_CREATED)
+            return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
+        return Response({"error":"Unauthorized"},status=status.HTTP_401_UNAUTHORIZED)
