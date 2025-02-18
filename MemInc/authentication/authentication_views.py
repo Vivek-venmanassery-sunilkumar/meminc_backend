@@ -185,7 +185,6 @@ class LoginView(APIView):
                         'role':user.role,
                     }, status = status.HTTP_200_OK)
                 elif user.role == 'customer':
-                    print(request.build_absolute_uri(user.customer_profile.profile_picture.url))
                     response = Response({
                         'message':'Login successfull',
                         'role': user.role,

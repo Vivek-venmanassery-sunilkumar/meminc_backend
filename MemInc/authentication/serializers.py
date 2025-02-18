@@ -38,14 +38,17 @@ class CustomerSerializer(serializers.ModelSerializer):
             'phone_number': {'validators': []},
         }
 
-    def validate_phone_number(self, value):
+    def validate_phone_number(self,value):
         instance = self.instance
-        user = instance.user
-        if instance and instance.phone_number == value:
-            return value
+        if instance:
+            if instance.phone_number == value:
+                return value
 
-        if Customer.objects.filter(phone_number = value).exclude(pk = user.id if user else None).exists():
-            raise serializers.ValidationError("This phone number is already in use")
+            if Customer.objects.filter(phone_number = value).exclude(pk = instance.pk).exists():
+                raise serializers.ValidationError("This phone number is already in use")
+        else:
+            if Customer.objects.filter(phone_number = value).exists():
+                raise serializers.ValidationError('This phone number is already in use.')
         return value
     def create(self, validated_data):
         email = validated_data.pop('email')
@@ -108,26 +111,31 @@ class VendorSerializer(serializers.ModelSerializer):
 
     def validate_phone_number(self,value):
         instance = self.instance
-        user =instance.user
-
-        if instance and instance.phone_number == value:
-            return value
+        if instance:
+            if instance.phone_number == value:
+                return value
         
 
-        if Vendor.objects.filter(phone_number = value).exclude(pk = user.id if user else None).exists():
-            raise serializers.ValidationError("This phone number is already in use")
+            if Vendor.objects.filter(phone_number = value).exclude(pk = instance.id if instance else None).exists():
+                raise serializers.ValidationError("This phone number is already in use")
+        else:
+            if Customer.objects.filter(phone_number = value).exists():
+                raise serializers.ValidationError('This phone number is already in use.')
         return value
         
     
-    def validate_company_nam(self, value):
+    def validate_company_name(self, value):
         instance = self.instance
-        user = instance.user
 
-        if instance and instance.company_name == value:
-            return value
+        if instance:
+            if instance.company_name == value:
+                return value
         
-        if Vendor.objects.filter(company_name = value).exclude(pk = user.id if user else None).exists():
-            raise serializers.ValidationError("This company already holds an account.")
+            if Vendor.objects.filter(company_name = value).exclude(pk = instance.id if instance else None).exists():
+                raise serializers.ValidationError("This company already holds an account.")
+        else:
+            if Vendor.objects.filter(company_name = value).exists():
+                raise serializers.ValidationError('This company already exists.')
         return value
 
     def create(self, validated_data):   
