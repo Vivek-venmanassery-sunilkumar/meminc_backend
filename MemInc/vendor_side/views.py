@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view
 from authentication.models import Vendor
 from admin_side.views import CustomPagination
 from authentication.serializers import VendorSerializer
+from .models import Products
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -62,7 +63,6 @@ def product_listing_vendor(request):
     
     try:
         vendor = user.vendor_profile
-        print(vendor)
     except Vendor.DoesNotExist:
         return Response({'error': 'Vendor not found'}, status=status.HTTP_404_NOT_FOUND)
     
@@ -87,6 +87,7 @@ def product_listing_vendor(request):
                 'stock': variant.stock
             })
         product_data.append({
+            'id':product.id,
             'product_name':product.name,
             'product_image':image_url,
             'category': product.category.category,
@@ -134,3 +135,107 @@ def vendor_profile_update(request):
     },status=status.HTTP_200_OK)
 
     return response
+
+
+class ProductDetailsEdit(APIView):
+    def get(self,request,product_id):
+        user= request.user
+
+        if user and user.is_authenticated and not user.is_blocked:
+            try:
+                product = Products.objects.select_related('vendor', 'category').prefetch_related('variant_profile','product_images').get(id=product_id)
+
+                product_data = {
+                    'id': product.id,
+                    'name': product.name,
+                    'description': product.description,
+                    'category': product.category.category,
+                    'variants':[
+                        {
+                            'id':variant.id,
+                            'quantity':variant.quantity,
+                            'variant_unit':variant.variant_unit,
+                            'price':variant.price,
+                            'stock':variant.stock
+                        }
+                        for variant in product.variant_profile.all()
+                    ],
+                    'images':[
+                        {
+                            'id':img.id,
+                            'url':request.build_absolute_uri(img.image.url)
+                        }
+                        for img in product.product_images.all()
+                    ]
+                }
+
+                return Response(product_data, status = status.HTTP_200_OK)
+            
+            except Products.DoesNotExist:
+                return Response({"error":"Product not found."},status=status.HTTP_404_NOT_FOUND)
+    
+
+    def put(self, request, product_id):
+        user = request.user
+
+        if user.is_authenticated and not user.is_blocked and user.role == 'vendor':
+            variants = request.data.get('variants', [])
+            variants_parsed_data = []
+            if isinstance(variants, str):
+                try:
+                    variants_parsed_data = json.loads(variants)
+                except json.JSONDecodeError:
+                    return Response({'error':'Invalid variants data.Expected JSON array.'},status=status.HTTP_400_BAD_REQUEST)
+                
+            
+            if not variants_parsed_data:
+                return Response({'error':'Atleast one variant should be present'},status=status.HTTP_400_BAD_REQUEST)
+            
+            image_list =request.FILES.getlist('images')
+
+            productinstance = Products.objects.get(pk = product_id)
+
+            images_to_be_deleted = request.data.get('images_to_delete',[])
+            images_to_be_deleted_parsed = []
+            if isinstance(images_to_be_deleted, str):
+                try:
+                    images_to_be_deleted_parsed = json.loads(images_to_be_deleted)
+                except json.JSONDecodeError:
+                    return Response({'error':'Invalid data received in delete image id'},status=status.HTTP_400_BAD_REQUEST)
+            
+            print(images_to_be_deleted_parsed)
+            number_of_images_to_delete = len(images_to_be_deleted_parsed)
+
+            length_of_image_list = len(image_list)
+
+            product_images_present = len(productinstance.product_images.all())
+
+            if product_images_present + length_of_image_list-number_of_images_to_delete < 3:
+                return Response({'error':'The product images cannot go below 3.'},status=status.HTTP_400_BAD_REQUEST)
+            
+            for image_id in images_to_be_deleted_parsed:
+                productinstance.product_images.filter(pk =image_id).delete()
+                
+            if length_of_image_list == 0:
+                image_data = [{'id': img.id, 'image': img.image} for img in productinstance.product_images.all()]
+            else:
+                image_data = [{'image': image} for image in image_list] 
+            product_data_update = {
+                'name': request.data.get('name'),
+                'description': request.data.get('description'),
+                'category': request.data.get('category'),
+                'images': image_data,
+                'variants':variants_parsed_data
+            }
+            print(product_data_update)
+
+            serializer = ProductSerializer(productinstance, data = product_data_update, context = {'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status = status.HTTP_200_OK)
+            return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
+
+
+
+            

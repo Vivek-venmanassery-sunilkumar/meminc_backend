@@ -83,7 +83,7 @@ class ProductSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         request = self.context.get('request')
-        print("Validated data ",validated_data)
+        
         if not request or not request.user:
             raise serializers.ValidationError('Authentication required') 
         
@@ -93,13 +93,13 @@ class ProductSerializer(serializers.ModelSerializer):
            raise serializers.ValidationError("You have no authority")
         
         category_name  = validated_data.pop('category')
-        print(category_name)
+       
         try:
             category = Categories.objects.get(category__iexact = category_name.lower())
         except Categories.DoesNotExist:
             raise ValidationError({'error':'Category does not exist.'})                 
         variant_data_array = validated_data.pop('variants')
-        print("variant_data_array:",variant_data_array)
+       
         image_data_array = validated_data.pop('images')
 
         product = Products.objects.create(category = category, vendor = vendor, **validated_data)
@@ -109,18 +109,67 @@ class ProductSerializer(serializers.ModelSerializer):
             variant_serializer = VariantsSerializer(data = variant)
             if variant_serializer.is_valid():
                 variant_serializer.save(product = product)
-
-        print("image_data_array:", image_data_array)
+            else:
+                raise serializers.ValidationError(variant_serializer.errors)
+        
 
         for image in image_data_array:
             image_serializer = ProductImageSerializer(data = image)
             if image_serializer.is_valid():
-                print("Image serializer is valid:", image_serializer.validated_data) 
+               
                 image_serializer.save(product = product)
             else:
-                print("Image serializer errors:", image_serializer.errors)
+                raise serializers.ValidationError(image_serializer.errors)
         
         return product
+    
+    @transaction.atomic()
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+
+        if not request or not request.user:
+            raise serializers.ValidationError('Authentication required')
+        
+        try:
+            vendor = request.user.vendor_profile
+        except Vendor.DoesNotExist:
+            raise serializers.ValidationError('You have no authority')
+        
+        category_name = validated_data.pop('category')
+        try:
+            category = Categories.objects.get(category__iexact = category_name.lower())
+            instance.category = category
+        except Categories.DoesNotExist:
+            raise serializers.ValidationError({"error":"Category does not exist."})
+        
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        
+        variant_data_array = validated_data.pop('variants')
+        instance.variant_profile.all().delete()
+
+        for variant in variant_data_array:
+            variant_serializer = VariantsSerializer(data = variant)
+            if variant_serializer.is_valid():
+                variant_serializer.save(product=instance)
+            else:
+                raise serializers.ValidationError(variant_serializer.errors)
+                
+        if 'images' in validated_data:
+            image_data_array = validated_data.pop('images')
+            instance.product_images.all().delete()
+
+            for image in image_data_array:
+                image_serializer = ProductImageSerializer(data = image)
+                if image_serializer.is_valid():
+                    image_serializer.save(product = instance)
+                else:
+                    raise serializers.ValidationError(image_serializer.errors)
+        return instance
+
 
 
 
