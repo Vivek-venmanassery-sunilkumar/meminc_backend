@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--a3bn)fj3=*yc&3&mya&n&ig*3_7mkfe%h&+n4w%vyis5zw0_!'
+SECRET_KEY =os.environ.get('DJANGO_SECRET_KEY') 
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -49,11 +49,28 @@ INSTALLED_APPS = [
     'admin_side',
     'vendor_side',
     'customer_side',
+    'django.contrib.sites',
 ]
+
+SITE_ID = 1
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'authentication.customjwtauthentication.CookieJWTAuthentication',
+        'authentication.customjwtauthentication.CookieJWTAuthentication', 
     ),
+}
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google':{
+        'SCOPE':['profile','email'],
+        'AUTH_PARAMS':{'access_type':'online'},
+        'APP':{
+            'client_id':os.environ.get('GOOGLE_CLIENT_ID'),
+            'secret':os.environ.get('GOOGLE_SECRET_KEY'),
+            'key': ''
+        }
+    }
 }
 
 MIDDLEWARE = [
@@ -159,11 +176,11 @@ CSRF_TRUSTED_ORIGINS = [
 SESSION_COOKIE_SAMESITE = None
 
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'meminccorporation@gmail.com'
-EMAIL_HOST_PASSWORD = 'ybbm pwge blop rxsi'
+EMAIL_HOST = os.environ.get('EMAIL_HOST')
+EMAIL_PORT = os.environ.get('EMAIL_PORT')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
 
 MEDIA_URL = '/media/'
@@ -176,4 +193,5 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,  # Optional: Rotate refresh tokens
     "BLACKLIST_AFTER_ROTATION": True,  # Optional: Blacklist old refresh tokens
 }
+
 

@@ -2,8 +2,11 @@ from django.contrib.auth import get_user_model
 from .models import Customer, Vendor, CustomerAddress, VendorAddress
 from rest_framework import serializers
 from django.db import transaction
+import re
 
 User = get_user_model()
+
+
 
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,6 +16,10 @@ class CustomUserSerializer(serializers.ModelSerializer):
                         'email':{'validators':[]}}
 
     def validate_email(self, value):
+        email_pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+
+        if not re.match(email_pattern, value):
+            raise serializers.ValidationError("Please enter a valid email address.")
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already in Use. Please try another one.")
         return value

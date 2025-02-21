@@ -5,12 +5,6 @@ from django.contrib.auth import get_user_model
 import os
 
 
-# def customer_profile_pic_path(instance, filename):
-#     return os.path.join('profile_pictures/customers', f"{instance.user.id}_{filename}")
-
-# def vendor_profile_pic_path(instance, filename):
-#     return os.path.join('profile_pictures/vendors', f"{instance.user.id}_{filename}")
-
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password, **extra_fields):
@@ -60,8 +54,9 @@ class Customer(models.Model):
     user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE, related_name = 'customer_profile')
     first_name = models.CharField(max_length = 100)
     last_name = models.CharField(max_length= 100)
-    phone_number = models.CharField(max_length=13, unique=True)  
+    phone_number = models.CharField(max_length=13, unique=True, null = True, blank=True)  
     profile_picture = models.ImageField(upload_to='profile_pictures/customers/', null=True, blank=True)
+    profile_picture_url = models.URLField(blank = True)
 
     def save(self, *args, **kwargs):
         if not self.user.is_blocked:

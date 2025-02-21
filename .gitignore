@@ -1,0 +1,16 @@
+# Python files 
+*.pyc 
+__pycache__/ 
+*.py[cod] 
+*$py.class 
+ 
+# Virtual Environment 
+env/ 
+venv/ 
+*.env 
+ 
+# Django 
+*.log 
+ 
+# Sensitive files 
+.env 

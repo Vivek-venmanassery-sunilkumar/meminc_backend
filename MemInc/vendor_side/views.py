@@ -234,8 +234,18 @@ class ProductDetailsEdit(APIView):
                 serializer.save()
                 return Response(serializer.data, status = status.HTTP_200_OK)
             return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        
+    def delete(self, request, product_id):
+        user = request.user
+
+        if user.is_authenticated and not user.is_blocked:
+            try:
+                product = Products.objects.get(id = product_id)
+                product.delete()
+            except Products.DoesNotExist:
+                return Response({'error':'The product does not exist'},status=status.HTTP_400_BAD_REQUEST) 
 
 
-
+        return Response({'message':'Success'},status=status.HTTP_200_OK)
 
             

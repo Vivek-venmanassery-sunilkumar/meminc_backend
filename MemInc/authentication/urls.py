@@ -7,6 +7,7 @@ urlpatterns = [
     path('resendotp/', ResendOtp.as_view()),
     path('vendor/', RegisterVendor.as_view()),
     path('login/', LoginView.as_view()),
-    path('logout/', logout)
+    path('logout/', logout),
+    path('google/',GoogleLoginView.as_view(), name = 'google_login'),
 ]
 

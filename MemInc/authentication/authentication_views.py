@@ -1,4 +1,3 @@
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,10 +8,103 @@ import random
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view
+from .models import Customer
+from django.contrib.auth import get_user_model
+from .models import Customer
+from .utils import verify_google_token
 
+User = get_user_model()
 
-
-
+class GoogleLoginView(APIView):
+    def post(self, request):
+        # Get token from request
+        token = request.data.get('token')
+        print('token',token)
+        if not token:
+            return Response({'error': 'Google token is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify Google token
+        google_user_data = verify_google_token(token)
+        if not google_user_data:
+            return Response({'error': 'Invalid Google token'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(google_user_data)
+        
+        # Get or create user
+        email = google_user_data.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Create new user
+            user = User.objects.create(
+                email=email,
+                is_active=True,
+                role='customer'
+            )
+        
+        # Create or update Customer profile
+        first_name = google_user_data.get('given_name', '')
+        last_name = google_user_data.get('family_name', '')
+        picture_url = google_user_data.get('picture', '')
+        print('picture_url from google:',picture_url)
+        if not user.is_blocked:
+            customer, created = Customer.objects.get_or_create(
+                user=user,
+                defaults={
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'profile_picture_url':picture_url,
+                }
+            )
+            
+            if not created:
+                customer.first_name = first_name
+                customer.last_name = last_name
+                customer.profile_picture_url = picture_url
+                customer.save()
+            
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+            
+            # Prepare response
+            response_data = {
+                'message': 'Login successful',
+                'email':user.email,
+                'role': user.role,
+                'first_name': customer.first_name,
+                'last_name': customer.last_name,
+                'phone_number':customer.phone_number,
+                'profile_picture': request.build_absolute_uri(user.customer_profile.profile_picture.url) or customer.profile_picture_url
+            }
+            
+            # Create response with cookies
+            response = Response(response_data, status=status.HTTP_200_OK)
+            
+            # Set tokens in HTTP-only cookies
+            response.set_cookie(
+                key='access_token',
+                value=access_token,
+                httponly=True,
+                path='/',
+                secure=False,  # Set to True in production with HTTPS
+                max_age=60 * 15,  # 15 minutes
+                samesite='Lax',
+            )
+            response.set_cookie(
+                key='refresh_token',
+                value=refresh_token,
+                httponly=True,
+                path='/',
+                secure=False,  # Set to True in production with HTTPS
+                max_age=60 * 60 * 24 * 7,  # 7 days
+                samesite='Lax',
+            )
+        
+            return response
+        else:
+            return Response({"error":"The user is blocked"}, status=status.HTTP_401_UNAUTHORIZED)
 #RegisterCustomer post function to get the validated data, generate otp, send mail to the email and save the data in cache.
 class RegisterCustomer(APIView):
     def post(self, request):
@@ -187,6 +279,7 @@ class LoginView(APIView):
                 elif user.role == 'customer':
                     response = Response({
                         'message':'Login successfull',
+                        'email': user.email,
                         'role': user.role,
                         'first_name': user.customer_profile.first_name,
                         'last_name': user.customer_profile.last_name,
@@ -196,6 +289,7 @@ class LoginView(APIView):
                 elif user.role == 'vendor':
                     response = Response({
                         'message': 'Login Successfull',
+                        'email': user.email,
                         'role': user.role,
                         'first_name': user.vendor_profile.first_name,
                         'last_name':user.vendor_profile.last_name,
