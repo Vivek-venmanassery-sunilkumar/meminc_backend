@@ -128,7 +128,7 @@ class RegisterCustomer(APIView):
         send_mail(
             'Verify your Email',
             f'Your otp for registration into MemInc:Fresh to home is: {otp}. The otp is valid for only 1 minute so hurry up!',
-            'meminccorporation.gmail.com',
+            'meminccorporation@gmail.com',
             [registration_data['email']],
             fail_silently=False,
         )
@@ -346,3 +346,35 @@ def logout(request):
         return response
     except Exception as e:
         return Response({"Error":str(e)},status=status.HTTP_400_BAD_REQUEST)
+    
+
+#forgot password otp validation
+
+
+@api_view(['POST'])
+def forgot_password_otpvalidation(request):
+    email = request.data['email']
+
+    try:
+        User.objects.get(email = email)
+    except User.DoesNotExist:
+        return Response({'error':'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+    otp = ''.join([str(random.randint(0,9)) for i in range(6)])
+    
+    cache_key = f"forgot_password_{email}"
+    cache_data = {
+        'otp': otp,
+        'attempts':1
+    }
+    cache.set(cache_key, cache_data, timeout=120)
+
+    send_mail(
+        'Change Password',
+        f'Otp to change the password for your account on MEMInc: Farm to Fork - The best cuts for you is: {otp}, Hurry up since the otp expires in 1 min',
+        'meminccorporation@gmail.com',
+        [email],
+        fail_silently=True
+    )
+
+    return Response({'message': 'Otp has been sent to your email.','email': email}, status=status.HTTP_200_OK)
