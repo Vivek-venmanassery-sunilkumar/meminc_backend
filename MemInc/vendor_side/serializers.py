@@ -141,23 +141,41 @@ class ProductSerializer(serializers.ModelSerializer):
             instance.category = category
         except Categories.DoesNotExist:
             raise serializers.ValidationError({"error":"Category does not exist."})
-        
+         
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         
-        variant_data_array = validated_data.pop('variants')
-        instance.variant_profile.all().delete()
+        variant_data_array = validated_data.pop('variants',[])
+        existing_variants = instance.variant_profile.all()
+
+        existing_variant_ids = {variant.id for variant in existing_variants}
+
+        incoming_variant_ids = {variant.get('id') for variant in variant_data_array if isinstance(variant.get('id'), int)}
+
+        for existing_variant in existing_variants:
+            if existing_variant.id not in incoming_variant_ids:
+                existing_variant.is_deleted = True
+                existing_variant.save()
 
         for variant in variant_data_array:
-            variant_serializer = VariantsSerializer(data = variant)
+            variant_id = variant.get('id')
+
+            if isinstance(variant_id, int) and variant_id in existing_variant_ids:
+                existing_variant = instance.variant_profile.get(id = variant_id)
+                variant_serializer = VariantsSerializer(existing_variant, data = variant, partial = True)
+            else:
+                variant_serializer = VariantsSerializer(data = variant)
+            
             if variant_serializer.is_valid():
-                variant_serializer.save(product=instance)
+                variant_serializer.save(product = instance)
             else:
                 raise serializers.ValidationError(variant_serializer.errors)
-                
+
+
+
         if 'images' in validated_data:
             image_data_array = validated_data.pop('images')
             instance.product_images.all().delete()

@@ -4,7 +4,10 @@ from vendor_side.models import Products
 from rest_framework.decorators import api_view
 from admin_side.views import CustomPagination
 from authentication.serializers import CustomerSerializer
-
+from .serializers import CustomerAddressSerializer
+from rest_framework.views import APIView
+from authentication.permissions import IsAuthenticatedAndNotBlocked
+from authentication.models import CustomerAddress
 
 # Create your views here.
 
@@ -69,5 +72,60 @@ def customer_profile_update(request):
     return response
     
     
+# view functions for the crud operations on customer addresses    
+
+class AddressManagementCustomer(APIView):
     
-   
+    permission_classes = [IsAuthenticatedAndNotBlocked]
+    def post(self, request):
+        address_data = request.data
+
+        customer = request.user.customer_profile
+        address_serializer = CustomerAddressSerializer(data= address_data)
+
+        if not address_serializer.is_valid():
+            return Response(address_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        address_serializer.save(customer = customer)
+
+        return Response(address_serializer.data,status=status.HTTP_201_CREATED)
+    
+
+    def get(self, request, address_id = None):
+        if address_id is not None:
+            try:
+                address_data = CustomerAddress.objects.get(id = address_id, customer= request.user.customer_profile)
+                serializer = CustomerAddressSerializer(address_data)
+                return Response(serializer.data, status = status.HTTP_200_OK)
+            except CustomerAddress.DoesNotExist:
+                return Response({'message':'Address does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+        else:
+            address_data = CustomerAddress.objects.filter(customer = request.user.customer_profile)
+            serializer = CustomerAddressSerializer(address_data, many= True)
+            return Response(serializer.data, status=status.HTTP_200_OK) 
+        
+
+    def put(self, request, address_id):
+        try:
+            address_data = CustomerAddress.objects.get(id = address_id, customer = request.user.customer_profile)
+            serializer = CustomerAddressSerializer(address_data, data=request.data, partial = True)
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except CustomerAddress.DoesNotExist:
+            return Response({"error":"Address not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error":str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    def delete(self, request, address_id):
+        try:
+            address_data = CustomerAddress.objects.get(id = address_id, customer = request.user.customer_profile)
+            address_data.delete()
+            return Response({'message': 'Address deleted successfully'}, status=status.HTTP_200_OK)
+        except CustomerAddress.DoesNotExist:
+            return Response({'error':'Address not found'}, status=status.HTTP_404_NOT_FOUND)

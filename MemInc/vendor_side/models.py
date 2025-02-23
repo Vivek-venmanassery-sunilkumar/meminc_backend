@@ -14,6 +14,7 @@ class Products(models.Model):
     category = models.ForeignKey(Categories,on_delete=models.CASCADE,related_name='product_profile')
     name = models.CharField(max_length=100)
     description = models.TextField(max_length=200)
+    is_deleted = models.BooleanField(default = False)
 
 
     def __str__(self):
@@ -25,6 +26,7 @@ class ProductVariants(models.Model):
     variant_unit = models.CharField(max_length=10, default = 'kg')
     price = models.DecimalField(decimal_places=2, max_digits=5)
     stock = models.IntegerField()
+    is_deleted= models.BooleanField(default = False)
 
 class ProductImages(models.Model):
     product = models.ForeignKey(Products, on_delete = models.CASCADE, related_name = 'product_images')

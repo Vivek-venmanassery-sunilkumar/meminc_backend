@@ -261,6 +261,7 @@ class LoginView(APIView):
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
+        print('password for google auth', password)
 
         user = authenticate(request, username = email, password = password)
         

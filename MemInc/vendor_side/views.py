@@ -54,11 +54,11 @@ class Product_create_view(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 @api_view(['GET'])
-def product_listing_vendor(request):
+def product_listing_vendor(request):   #This get method is used to call all not deleted product details on vendor side and customer side.
     user = request.user
     print("vendor_side_product_listing debug: ",user)
 
-    if not user.is_authenticated or user.is_blocked:
+    if not user.is_authenticated or user.is_blocked and user.role == 'vendor':
         return Response({'error': 'The vendor is not authenticated.'}, status=status.HTTP_401_UNAUTHORIZED)
     
     try:
@@ -66,14 +66,14 @@ def product_listing_vendor(request):
     except Vendor.DoesNotExist:
         return Response({'error': 'Vendor not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    products = vendor.vendor_products.all()
+    products = vendor.vendor_products.filter(is_deleted = False)
     
     product_data = []
     
     for product in products:
         product_image_instance = product.product_images.first()
         image_url = request.build_absolute_uri(product_image_instance.image.url)
-        variants = product.variant_profile.all()
+        variants = product.variant_profile.filter(is_deleted = False)
         variant_data = []
         for variant in variants:
             if not variant.variant_unit == 'packet of':
@@ -138,7 +138,7 @@ def vendor_profile_update(request):
 
 
 class ProductDetailsEdit(APIView):
-    def get(self,request,product_id):
+    def get(self,request,product_id):  #this is used to fetch the product details when the vendor is editing the product and also when the user is requesting profile details.
         user= request.user
 
         if user and user.is_authenticated and not user.is_blocked:
@@ -158,7 +158,7 @@ class ProductDetailsEdit(APIView):
                             'price':variant.price,
                             'stock':variant.stock
                         }
-                        for variant in product.variant_profile.all()
+                        for variant in product.variant_profile.filter(is_deleted = False)
                     ],
                     'images':[
                         {
@@ -241,7 +241,8 @@ class ProductDetailsEdit(APIView):
         if user.is_authenticated and not user.is_blocked:
             try:
                 product = Products.objects.get(id = product_id)
-                product.delete()
+                product.is_deleted = True
+                product.save()
             except Products.DoesNotExist:
                 return Response({'error':'The product does not exist'},status=status.HTTP_400_BAD_REQUEST) 
 
