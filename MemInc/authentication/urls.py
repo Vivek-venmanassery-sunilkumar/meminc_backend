@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .authentication_views import *
 
 urlpatterns = [
@@ -9,5 +9,6 @@ urlpatterns = [
     path('login/', LoginView.as_view()),
     path('logout/', logout),
     path('google/',GoogleLoginView.as_view(), name = 'google_login'),
+    path('password-reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
 ]
 

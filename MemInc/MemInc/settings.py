@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'vendor_side',
     'customer_side',
     'django.contrib.sites',
+    'django_rest_passwordreset'
 ]
 
 SITE_ID = 1
