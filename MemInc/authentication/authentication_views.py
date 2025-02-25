@@ -67,7 +67,13 @@ class GoogleLoginView(APIView):
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
+
+            if hasattr(user.customer_profile, 'profile_picture') and user.customer_profile.profile_picture:
+                profile_picture_url = request.build_absolute_uri(user.customer_profile.profile_picture.url)
+            else:
+                profile_picture_url = customer.profile_picture_url
             
+            print(profile_picture_url)
             # Prepare response
             response_data = {
                 'message': 'Login successful',
@@ -76,7 +82,7 @@ class GoogleLoginView(APIView):
                 'first_name': customer.first_name,
                 'last_name': customer.last_name,
                 'phone_number':customer.phone_number,
-                'profile_picture': request.build_absolute_uri(user.customer_profile.profile_picture.url) or customer.profile_picture_url
+                'profile_picture': profile_picture_url
             }
             
             # Create response with cookies

@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'vendor_side',
     'customer_side',
     'django.contrib.sites',
-    'django_rest_passwordreset'
+    'django_rest_passwordreset',
+    'cart_and_orders'
 ]
 
 SITE_ID = 1
