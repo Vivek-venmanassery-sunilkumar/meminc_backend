@@ -76,6 +76,8 @@ class CartDetails(APIView):
                 if cart_item.quantity < variant.stock:
                     cart_item.quantity += 1
                     cart_item.save()
+                else:
+                    return Response({'error': 'product max stock availability reached'}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 if cart_item.quantity == 1:
                     cart_item.delete()
@@ -104,6 +106,12 @@ class CartDetails(APIView):
         }
 
         return Response(response_data, status = status.HTTP_200_OK)
+    
+    def delete(self, request, variant_id):
+        cart_item = CartItems.objects.get(variant_id = variant_id)
+
+        cart_item.delete()
+        return Response({'message': 'Item removed from cart'}, status = status.HTTP_200_OK)
 
 
 
