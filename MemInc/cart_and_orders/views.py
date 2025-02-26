@@ -62,18 +62,28 @@ class CartDetails(APIView):
         
         variant = get_object_or_404(ProductVariants, id = variant_id)
 
-        quantity =int(request.data.get('quantity', 1))
+        if variant.stock <= 0:
+            return Response({'error': 'This variant is out of stock'}, status=status.HTTP_400_BAD_REQUEST)
+        
 
-        if quantity <= 0:
-            return Response({'error':'Quantity must be greater than 0'}, status=status.HTTP_400_BAD_REQUEST)
+        cart_item, created = CartItems.objects.get_or_create(cart = cart, variant = variant)
+        action = request.data.get('action')
+        if not action:
+            action = 'increase'
 
-        cart_item, created = CartItems.objects.create(cart = cart, variant = variant)
         if not created:
-            cart_item.quantity += quantity
-        else:
-            cart_item.quantity = quantity
-        cart_item.save()
-
+            if action == 'increase':
+                if cart_item.quantity < variant.stock:
+                    cart_item.quantity += 1
+                    cart_item.save()
+            else:
+                if cart_item.quantity == 1:
+                    cart_item.delete()
+                    return Response({'message': 'Item removed from cart'}, status=status.HTTP_204_NO_CONTENT)
+                else:
+                    cart_item.quantity -= 1
+                    cart_item.save()
+            
         print("cart_items object: ", cart_item)
         total_price = cart.calculate_total_price()
 
