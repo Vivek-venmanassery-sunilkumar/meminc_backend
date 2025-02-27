@@ -4,11 +4,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ProductSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view,permission_classes
 from authentication.models import Vendor
 from admin_side.views import CustomPagination
 from authentication.serializers import VendorSerializer
 from .models import Products
+from authentication.permissions import IsAuthenticatedAndNotBlocked, IsVendor   
+from cart_and_orders.models import OrderItems
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -156,7 +158,8 @@ class ProductDetailsEdit(APIView):
                             'quantity':variant.quantity,
                             'variant_unit':variant.variant_unit,
                             'price':variant.price,
-                            'stock':variant.stock
+                            'stock':variant.stock,
+                            'is_out_of_stock': variant.stock == 0,
                         }
                         for variant in product.variant_profile.filter(is_deleted = False)
                     ],
@@ -249,4 +252,43 @@ class ProductDetailsEdit(APIView):
 
         return Response({'message':'Success'},status=status.HTTP_200_OK)
 
-            
+
+@api_view(['GET'])
+@permission_classes([IsVendor, IsAuthenticatedAndNotBlocked])
+def vendor_order(request):
+    vendor= request.user.vendor_profile
+    order_items =  OrderItems.objects.filter(
+        variant__product__vendor = vendor
+    ).select_related(
+        'order',
+        'variant__product'
+    ).prefetch_related(
+        'variant__product__product_images',
+        'order__order_shipping_address'
+    )
+
+    response_data_orders = []
+    for item in order_items:
+            shipping_address = item.order.order_shipping_address.first()
+            product_image = item.variant.product.product_images.first()
+            image_url = request.build_absolute_uri(product_image.image.url) if product_image else None
+            response_data_order = {
+                'order_item_id':item.id,
+                'quantity': item.quantity,
+                'price': item.price,
+                'status':item.order_item_status,
+                'created_at': item.order.created_at.strftime("%Y-%m-%d %H:%M"),
+                'image_url': image_url,
+                'shipping_address':{
+                    'name': shipping_address.name,
+                    'phone_number': shipping_address.phone_number,
+                    'street_address': shipping_address.street_address,
+                    'city': shipping_address.city,
+                    'state': shipping_address.state,
+                    'country': shipping_address.country,
+                    'pincode':shipping_address.pincode,
+                }
+            }
+            response_data_orders.append(response_data_order)
+    
+    return Response(response_data_orders, status=status.HTTP_200_OK)

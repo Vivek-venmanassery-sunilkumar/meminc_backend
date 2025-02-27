@@ -28,7 +28,8 @@ def product_listing_customer_side(request):
                         'id': variant.id,
                         'name': f'{variant.quantity} {variant.variant_unit}',
                         'price': variant.price,
-                        'stock': variant.stock
+                        'stock': variant.stock,
+                        'is_out_of_stock': variant.stock == 0,
                     })
             product_data.append({
                 'id':product.id,

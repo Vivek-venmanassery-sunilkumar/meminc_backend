@@ -1,12 +1,15 @@
-
+from django.forms.models import model_to_dict
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from authentication.permissions import IsAuthenticatedAndNotBlocked, IsCustomer
 from .models import Cart, CartItems
 from vendor_side.models import Products, ProductImages, ProductVariants
-from authentication.models import Vendor
+from authentication.models import Vendor, CustomerAddress
 from rest_framework.response import Response
 from rest_framework import status
+from .models import *
+from django.db import transaction
+from decimal import Decimal
 # Create your views here.
 
 
@@ -116,3 +119,119 @@ class CartDetails(APIView):
 
 
         
+class Checkout(APIView):
+    permission_classes = [IsAuthenticatedAndNotBlocked]
+
+    @transaction.atomic
+    def post(self, request):
+        try:
+            user = request.user
+            customer = request.user.customer_profile
+
+            data =request.data
+            items_data = data.get('items', [])
+            if not items_data:
+                return Response({'error':'No items in cart'}, status=status.HTTP_400_BAD_REQUEST)
+
+            order = Order.objects.create(customer = customer, total_price = Decimal('0.0'))
+
+            total_price = Decimal('0.00')
+            for item in items_data:
+                try:
+                    variant = ProductVariants.objects.get(id = item['variant_id'])
+                    quantity = int(item['quantity'])
+                    order_item = OrderItems.objects.create(order = order, variant = variant, quantity = quantity)
+                    print(type(variant.stock))
+                    print(type(quantity))
+                    variant.stock -= quantity
+                    variant.save()
+                    print(type(total_price))
+                    print(type(order_item.price))
+                    total_price += order_item.price
+                except ProductVariants.DoesNotExist:
+                    return Response({'error':'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            order.total_price = Decimal(total_price)
+            order.save()
+
+            address_id = data.get('address_id') 
+            address = CustomerAddress.objects.get(id = address_id, customer = customer)
+            address_data = model_to_dict(address, exclude = ['id','customer'])
+            ShippingAddress.objects.create(order = order, customer = customer,name = f"{customer.first_name} {customer.last_name}", phone_number = customer.phone_number, **address_data)
+
+            payment_mode= data.get('payment_mode')
+
+            if payment_mode == 'cash_on_delivery':
+                payment = Payments.objects.create(order = order, payment_method = 'cod')
+
+                try:
+                    cart = Cart.objects.get(user = user)
+                    cart.items.all().delete()
+                    cart.total_price = Decimal('0.00')
+                    cart.save()
+                except Cart.DoesNotExist:
+                    pass
+
+                return Response({'success': True, 'message': "Order placed successfully with Cash on Delivery", 'order_id': order.id, 'total_amount': order.final_price}, status=status.HTTP_200_OK)
+            
+
+        
+        except Exception as e:
+            print(f"error processing checkout: ", {str(e)})
+            return Response({'error': 'Failed to process order'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    
+    def get(self, request):
+        customer = request.user.customer_profile
+        orders = customer.customer_order_details.all()
+
+        response_data = []
+
+        for order in orders:    
+            shipping_address = ShippingAddress.objects.get(customer = customer, order = order)
+            payment_details = Payments.objects.get(order = order)
+            order_items = OrderItems.objects.filter(order = order)
+
+            response_data_per_order = {
+                'order_id': order.id,
+                'shipping_address': {
+                    'name': f"{customer.first_name} {customer.last_name}",
+                    'phone_number':customer.phone_number,
+                    'street_address':shipping_address.street_address,
+                    'city':shipping_address.city,
+                    'state':shipping_address.state,
+                    'country':shipping_address.country,
+                    'pincode': shipping_address.pincode,
+                },
+                'order_items': [{
+                    'name':order_item.variant.product.name,
+                    'brand': order_item.variant.product.vendor.company_name,
+                    'variant':f"{order_item.variant.variant_unit} {order_item.variant.quantity}",
+                    'product_image_url':request.build_absolute_uri(order_item.variant.product.product_images.first().image.url),
+                    'quantity':order_item.quantity,
+                    'price': order_item.price,
+                    'order_item_status':order_item.order_item_status,
+                } for order_item in order_items],
+                'subtotal':order.total_price,
+                'discount':order.discount_price,
+                'final_price':order.final_price,
+                'order_creation_time':order.created_at.strftime("%Y-%m-%d %H:%M"),
+                'order_status': order.order_status,
+                'payment_details':{
+                    'payment_status':payment_details.payment_status,
+                    'payment_method': payment_details.payment_method,
+                    'transaction_id':payment_details.transaction_id if payment_details else None,   
+                }
+                
+            }
+
+            response_data.append(response_data_per_order)
+        
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+        
+        
+
+

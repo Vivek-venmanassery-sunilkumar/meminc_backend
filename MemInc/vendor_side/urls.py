@@ -6,4 +6,5 @@ urlpatterns = [
     path('product-listing/', product_listing_vendor),
     path('update-profile/', vendor_profile_update),
     path('products/<int:product_id>/',ProductDetailsEdit.as_view()),
+    path('orders/', vendor_order),
 ]
