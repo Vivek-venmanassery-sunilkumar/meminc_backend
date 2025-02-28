@@ -11,6 +11,7 @@ from authentication.serializers import VendorSerializer
 from .models import Products
 from authentication.permissions import IsAuthenticatedAndNotBlocked, IsVendor   
 from cart_and_orders.models import OrderItems
+from vendor_side.models import ProductVariants
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -292,3 +293,23 @@ def vendor_order(request):
             response_data_orders.append(response_data_order)
     
     return Response(response_data_orders, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsVendor, IsAuthenticatedAndNotBlocked])
+def vendor_order_status_update(request, order_item_id):
+    vendor = request.user.vendor_profile
+    order_item_id = order_item_id
+    order_status = request.data.get('status')
+
+    order_item = OrderItems.objects.get(id = order_item_id)
+    if order_item.variant.product.vendor.id == vendor.id:
+        order_item.order_item_status = order_status
+        order_item.save() 
+        return Response({'message': 'status updated successfully'}, status=status.HTTP_200_OK)
+    else:
+        return Response({'error':'vendor not genuine'}, status=status.HTTP_400_BAD_REQUEST)
+
+     
+
+    
