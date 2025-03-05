@@ -210,7 +210,7 @@ class Checkout(APIView):
                     'product_image_url':request.build_absolute_uri(order_item.variant.product.product_images.first().image.url),
                     'quantity':order_item.quantity,
                     'price': order_item.price,
-                    'order_item_status':order_item.order_item_status,
+                    'order_item_status':order_item.get_order_item_status_display(),
                 } for order_item in order_items],
                 'subtotal':order.total_price,
                 'discount':order.discount_price,

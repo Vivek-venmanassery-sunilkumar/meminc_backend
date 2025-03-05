@@ -55,10 +55,10 @@ class Order(models.Model):
 
 class OrderItems(models.Model):
     ORDER_ITEM_STATUS_CHOICES = [
-        ('Processing', 'Processing'),
-        ('Shipped', 'Shipped'),
-        ('Delivered', 'Delivered'),
-        ('Cancelled', 'Cancelled'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
     ]
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items')
     variant = models.ForeignKey(ProductVariants, on_delete=models.CASCADE)
@@ -69,6 +69,8 @@ class OrderItems(models.Model):
     cancel_time = models.DateTimeField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
+        if self.order_item_status:
+            self.order_item_status = self.order_item_status.lower()
         self.price = self.variant.price * self.quantity
         super().save(*args, **kwargs)
         self.order.update_order_status()

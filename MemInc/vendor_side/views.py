@@ -12,6 +12,7 @@ from .models import Products
 from authentication.permissions import IsAuthenticatedAndNotBlocked, IsVendor   
 from cart_and_orders.models import OrderItems
 from vendor_side.models import ProductVariants
+from django.shortcuts import get_object_or_404
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -277,7 +278,7 @@ def vendor_order(request):
                 'order_item_id':item.id,
                 'quantity': item.quantity,
                 'price': item.price,
-                'status':item.order_item_status,
+                'status':item.get_order_item_status_display(),
                 'created_at': item.order.created_at.strftime("%Y-%m-%d %H:%M"),
                 'image_url': image_url,
                 'shipping_address':{
@@ -299,17 +300,36 @@ def vendor_order(request):
 @permission_classes([IsVendor, IsAuthenticatedAndNotBlocked])
 def vendor_order_status_update(request, order_item_id):
     vendor = request.user.vendor_profile
-    order_item_id = order_item_id
-    order_status = request.data.get('status')
+    order_status = request.data.get('status', '').lower()
 
-    order_item = OrderItems.objects.get(id = order_item_id)
-    if order_item.variant.product.vendor.id == vendor.id:
-        order_item.order_item_status = order_status
-        order_item.save() 
-        return Response({'message': 'status updated successfully'}, status=status.HTTP_200_OK)
-    else:
-        return Response({'error':'vendor not genuine'}, status=status.HTTP_400_BAD_REQUEST)
 
-     
 
-    
+    if order_status not in ['dispatched', 'cancelled']:
+        return Response({'error':'The order status cannot be changed back to processing.'},status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        cancel_reason = request.data.get('cancellation_reason', '')
+        order_item = get_object_or_404(OrderItems, id = order_item_id)
+        if order_item.variant.product.vendor.id != vendor.id:
+            return Response({'error': 'Vendor not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if order_item.order_item_status == 'processing' and order_status =='dispatched':
+            print('are we inside this function')
+            order_item.order_item_status = order_status
+            order_item.save()
+            return Response({'message': 'status updated successfully'}, status=status.HTTP_200_OK)
+        elif order_item.order_item_status == 'processing' and order_status == 'cancelled':
+            order_item.order_item_status = order_status
+            order_item.cancel_reason = f"{cancel_reason} cancelled by {vendor.first_name}"
+            order_item.save()
+            return Response({'message': 'status and reason updated successfully'}, status=status.HTTP_200_OK)
+        elif order_item.order_item_status == 'dispatched':
+            return Response({'message':'The order has already been dispatched and can only be returned or cancelled by the admin. You can raise a concern if you like.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'error':'Invalid status transition'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        print(str(e))
+        return Response({'error':'An Internal server error occured'}, status = status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        
+        
