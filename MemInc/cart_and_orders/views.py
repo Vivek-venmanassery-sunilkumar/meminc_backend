@@ -11,6 +11,7 @@ from .models import *
 from django.db import transaction
 from decimal import Decimal
 from authentication.permissions import IsAdmin
+from admin_side.models import Coupon
 # Create your views here.
 
 
@@ -129,6 +130,7 @@ class Checkout(APIView):
         try:
             user = request.user
             customer = request.user.customer_profile
+            coupon_id = request.data.get('coupon_id')
 
             data =request.data
             items_data = data.get('items', [])
@@ -143,23 +145,43 @@ class Checkout(APIView):
                     variant = ProductVariants.objects.get(id = item['variant_id'])
                     quantity = int(item['quantity'])
                     order_item = OrderItems.objects.create(order = order, variant = variant, quantity = quantity)
-                    print(type(variant.stock))
-                    print(type(quantity))
                     variant.stock -= quantity
                     variant.save()
-                    print(type(total_price))
-                    print(type(order_item.price))
                     total_price += order_item.price
                 except ProductVariants.DoesNotExist:
                     return Response({'error':'Product not found'}, status=status.HTTP_404_NOT_FOUND)
             
-            order.total_price = Decimal(total_price)
-            order.save()
+            if coupon_id:
+                try:
+                    coupon = Coupon.objects.get(id = coupon_id)
+                    discount_type = coupon.discount_type
+                    discount_value = coupon.discount_value
+                    min_order_value = coupon.min_order_value
+                    max_discount_value = coupon.max_discount
+                    if total_price > min_order_value:
+                        if discount_type == 'percentage':
+                            discount = total_price * discount_value/100
+                            if discount > max_discount_value:
+                                discount = max_discount_value
+                        else:
+                            discount = discount_value
+                    else:
+                        discount = Decimal('0.00')
+                except Coupon.DoesNotExist:
+                    return Response({'error': 'Invalid Coupon'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                coupon = None
+                discount = Decimal('0.00')
 
+            order.total_price = Decimal(total_price)
+            order.discount_price = Decimal(discount)
+            order.coupon = coupon
+            order.save()
             address_id = data.get('address_id') 
             address = CustomerAddress.objects.get(id = address_id, customer = customer)
             address_data = model_to_dict(address, exclude = ['id','customer'])
             ShippingAddress.objects.create(order = order, customer = customer,name = f"{customer.first_name} {customer.last_name}", phone_number = customer.phone_number, **address_data)
+
 
             payment_mode= data.get('payment_mode')
 

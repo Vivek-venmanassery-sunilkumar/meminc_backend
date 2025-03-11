@@ -8,6 +8,7 @@ urlpatterns = [
     path('update-profile/', customer_profile_update),
     path('addresses/', AddressManagementCustomer.as_view()),
     path('addresses/<int:address_id>', AddressManagementCustomer.as_view()),
+    path('coupons/', customer_coupons)
 ]
 
 

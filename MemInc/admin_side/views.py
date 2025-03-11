@@ -166,6 +166,28 @@ class Coupons(APIView):
         return Response(response_main, status=status.HTTP_200_OK)
 
     def put(self, request, coupon_id):
+        try: 
+            coupon = Coupon.objects.get(id = coupon_id)
+            
+            serializer = CouponSerializer(coupon, data = request.data, partial = True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+
+@api_view(['POST'])
+def toggle(request, coupon_id):
+    try:
         coupon = Coupon.objects.get(id = coupon_id)
 
-        pass
+        coupon.is_active_admin = request.data.get('is_active_admin')
+        coupon.save()
+        return Response({'message': 'Coupon status updated successfully'}, status=status.HTTP_200_OK)
+    except Coupon.DoesNotExist:
+        return Response({'error': 'Coupon not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error':str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

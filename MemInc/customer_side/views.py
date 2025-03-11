@@ -1,14 +1,15 @@
 from rest_framework.response import Response
 from rest_framework import status
 from vendor_side.models import Products
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from admin_side.views import CustomPagination
 from authentication.serializers import CustomerSerializer
 from .serializers import CustomerAddressSerializer
 from rest_framework.views import APIView
-from authentication.permissions import IsAuthenticatedAndNotBlocked
+from authentication.permissions import IsAuthenticatedAndNotBlocked,IsCustomer
 from authentication.models import CustomerAddress
-
+from admin_side.models import Coupon
+from decimal import Decimal
 # Create your views here.
 
 
@@ -132,3 +133,29 @@ class AddressManagementCustomer(APIView):
             return Response({'message': 'Address deleted successfully'}, status=status.HTTP_200_OK)
         except CustomerAddress.DoesNotExist:
             return Response({'error':'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+
+
+@api_view(['GET'])
+@permission_classes([IsCustomer])
+def customer_coupons(request):
+    try:
+        total_price = request.GET.get('total_price')
+        coupons = Coupon.objects.filter(is_active = True, is_active_admin = True)
+        response= []
+        for coupon in coupons:
+            if Decimal(total_price) > coupon.min_order_value:
+                response_coupon = {
+                    'id': coupon.id,
+                    'code': coupon.code,
+                    'coupon_type': coupon.discount_type,
+                    'discount_value': coupon.discount_value,
+                    'max_discount': coupon.max_discount,
+                    'min_order_value': coupon.min_order_value,
+                }
+                response.append(response_coupon)
+        
+        return Response(response, status=status.HTTP_200_OK)
+    except Coupon.DoesNotExist:
+        return Response({'message':'No available coupons'}, status=status.HTTP_400_BAD_REQUEST)
