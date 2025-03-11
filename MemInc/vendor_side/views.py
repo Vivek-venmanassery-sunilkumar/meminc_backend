@@ -255,6 +255,9 @@ class ProductDetailsEdit(APIView):
         return Response({'message':'Success'},status=status.HTTP_200_OK)
 
 
+
+#View functions below are for the order of the particular vendor and also to update each of those order item status.
+
 @api_view(['GET'])
 @permission_classes([IsVendor, IsAuthenticatedAndNotBlocked])
 def vendor_order(request):

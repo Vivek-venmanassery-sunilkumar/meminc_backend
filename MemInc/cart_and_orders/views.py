@@ -10,6 +10,7 @@ from rest_framework import status
 from .models import *
 from django.db import transaction
 from decimal import Decimal
+from authentication.permissions import IsAdmin
 # Create your views here.
 
 
@@ -118,7 +119,8 @@ class CartDetails(APIView):
 
 
 
-        
+#This view accepts the post data from the cart to create an order for the customer and also clearing the cart as a sideeffect.
+#Also gets the order details of each customer to showcase on their my orders tab.
 class Checkout(APIView):
     permission_classes = [IsAuthenticatedAndNotBlocked]
 
@@ -229,9 +231,4 @@ class Checkout(APIView):
         
 
         return Response(response_data, status=status.HTTP_200_OK)
-
-
-        
-        
-
 

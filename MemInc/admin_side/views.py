@@ -8,6 +8,9 @@ import math
 from django.contrib.auth import get_user_model
 from vendor_side.models import Categories
 from vendor_side.serializers import CategorySerializer
+from authentication.permissions import IsAdmin
+from .serializers import CouponSerializer
+from .models import Coupon
 
 User = get_user_model()
 
@@ -118,3 +121,51 @@ class Categoryview(APIView):
                 return Response(serializer.data, status = status.HTTP_201_CREATED)
             return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
         return Response({"error":"Unauthorized"},status=status.HTTP_401_UNAUTHORIZED)
+    
+
+#coupons
+
+class Coupons(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        data = request.data
+
+        try:
+            serializer = CouponSerializer(data = data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  
+        except Exception as e:
+            return Response(
+                {'error':str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self, request):
+        coupons = Coupon.objects.all()
+        response_main = []
+        for coupon in coupons:
+            response = {
+                'id': coupon.id,
+                'start_date': coupon.start_date,
+                'expiry_date': coupon.expiry_date,
+                'code': coupon.code,
+                'discount_type': coupon.discount_type,
+                'discount_value': coupon.discount_value,
+                'max_discount': coupon.max_discount,
+                'min_order_value': coupon.min_order_value,
+                'is_active': coupon.is_active,
+                'is_active_admin': coupon.is_active_admin,
+            }
+            response_main.append(response)
+
+        
+        return Response(response_main, status=status.HTTP_200_OK)
+
+    def put(self, request, coupon_id):
+        coupon = Coupon.objects.get(id = coupon_id)
+
+        pass
