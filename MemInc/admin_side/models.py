@@ -26,3 +26,8 @@ class Coupon(models.Model):
 
     def __str__(self):
         return f"{self.discount_type} - {self.discount_value}"
+
+
+class UsedCoupon(models.Model):
+    coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE)
+    user = models.ForeignKey(Coupon, on_delete=models.CASCADE, related_name='used_coupon')

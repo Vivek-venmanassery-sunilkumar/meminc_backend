@@ -11,7 +11,7 @@ from .models import *
 from django.db import transaction
 from decimal import Decimal
 from authentication.permissions import IsAdmin
-from admin_side.models import Coupon
+from admin_side.models import Coupon, UsedCoupon
 # Create your views here.
 
 
@@ -158,6 +158,11 @@ class Checkout(APIView):
                     discount_value = coupon.discount_value
                     min_order_value = coupon.min_order_value
                     max_discount_value = coupon.max_discount
+                    total_price = Decimal(total_price)
+
+                    if UsedCoupon.objects.filter(user = user, coupon = coupon).exists():
+                        return Response({'error':'Coupon already used'}, status=status.HTTP_400_BAD_REQUEST)
+
                     if total_price > min_order_value:
                         if discount_type == 'percentage':
                             discount = total_price * discount_value/100
@@ -165,6 +170,9 @@ class Checkout(APIView):
                                 discount = max_discount_value
                         else:
                             discount = discount_value
+                            
+                        with transaction.atomic():
+                            UsedCoupon.objects.create(user = user, coupon = coupon)
                     else:
                         discount = Decimal('0.00')
                 except Coupon.DoesNotExist:
