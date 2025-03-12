@@ -1,5 +1,8 @@
 from django.db import models
 from enum import Enum
+from django.contrib.auth import get_user_model
+
+user = get_user_model()
 
 # Create your models here.
 
@@ -30,4 +33,4 @@ class Coupon(models.Model):
 
 class UsedCoupon(models.Model):
     coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE)
-    user = models.ForeignKey(Coupon, on_delete=models.CASCADE, related_name='used_coupon')
+    user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='used_coupon')

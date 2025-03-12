@@ -8,7 +8,7 @@ from .serializers import CustomerAddressSerializer
 from rest_framework.views import APIView
 from authentication.permissions import IsAuthenticatedAndNotBlocked,IsCustomer
 from authentication.models import CustomerAddress
-from admin_side.models import Coupon
+from admin_side.models import Coupon, UsedCoupon
 from decimal import Decimal
 # Create your views here.
 
@@ -143,18 +143,23 @@ def customer_coupons(request):
     try:
         total_price = request.GET.get('total_price')
         coupons = Coupon.objects.filter(is_active = True, is_active_admin = True)
+        used_coupon_instance = UsedCoupon.objects.filter(user = request.user)
+        used_coupons = []
+        for used_coupon in used_coupon_instance:
+            used_coupons.append(used_coupon.coupon)
         response= []
         for coupon in coupons:
-            if Decimal(total_price) > coupon.min_order_value:
-                response_coupon = {
-                    'id': coupon.id,
-                    'code': coupon.code,
-                    'coupon_type': coupon.discount_type,
-                    'discount_value': coupon.discount_value,
-                    'max_discount': coupon.max_discount,
-                    'min_order_value': coupon.min_order_value,
-                }
-                response.append(response_coupon)
+            if coupon not in used_coupons:
+                if Decimal(total_price) >= coupon.min_order_value:
+                    response_coupon = {
+                        'id': coupon.id,
+                        'code': coupon.code,
+                        'coupon_type': coupon.discount_type,
+                        'discount_value': coupon.discount_value,
+                        'max_discount': coupon.max_discount,
+                        'min_order_value': coupon.min_order_value,
+                    }
+                    response.append(response_coupon)
         
         return Response(response, status=status.HTTP_200_OK)
     except Coupon.DoesNotExist:
