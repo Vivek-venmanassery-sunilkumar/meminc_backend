@@ -76,7 +76,7 @@ class OrderItems(models.Model):
         self.order.update_order_status()
 
 class Payments(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_payment')
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='order_payment')
     payment_method = models.CharField(max_length=100)
     payment_status = models.CharField(max_length=100, default= 'pending')
     transaction_id = models.CharField(max_length=100, blank=True, null=True)

@@ -1,10 +1,13 @@
+import razorpay
+from django.conf import settings
 from django.forms.models import model_to_dict
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from authentication.permissions import IsAuthenticatedAndNotBlocked, IsCustomer
 from .models import Cart, CartItems
-from vendor_side.models import Products, ProductImages, ProductVariants
-from authentication.models import Vendor, CustomerAddress
+from vendor_side.models import ProductVariants
+from authentication.models import CustomerAddress
 from rest_framework.response import Response
 from rest_framework import status
 from .models import *
@@ -13,6 +16,11 @@ from decimal import Decimal
 from authentication.permissions import IsAdmin
 from admin_side.models import Coupon, UsedCoupon
 # Create your views here.
+
+import logging
+from razorpay.errors import BadRequestError
+
+logger = logging.getLogger(__name__)
 
 
 class CartDetails(APIView):
@@ -122,8 +130,14 @@ class CartDetails(APIView):
 
 #This view accepts the post data from the cart to create an order for the customer and also clearing the cart as a sideeffect.
 #Also gets the order details of each customer to showcase on their my orders tab.
+
+
+client = razorpay.Client(auth = (settings.RAZORPAY_KEY_ID,settings.RAZORPAY_KEY_SECRET))
+
 class Checkout(APIView):
     permission_classes = [IsAuthenticatedAndNotBlocked]
+
+
 
     @transaction.atomic
     def post(self, request):
@@ -131,91 +145,120 @@ class Checkout(APIView):
             user = request.user
             customer = request.user.customer_profile
             coupon_id = request.data.get('coupon_id')
-
-            data =request.data
+            data = request.data
             items_data = data.get('items', [])
+            
             if not items_data:
-                return Response({'error':'No items in cart'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'No items in cart'}, status=status.HTTP_400_BAD_REQUEST)
 
-            order = Order.objects.create(customer = customer, total_price = Decimal('0.0'))
+            # Check for existing processing order
+            # payment_details = Order.objects.filter(customer=customer, order_status='Processing').select_related('order_payment').only('id', 'order_payment__payment_status', 'order_payment__payment_method')
+            # order = None
+            # for payment_detail in payment_details:
+            #     if payment_detail.order_payment.payment_status == 'pending' and payment_detail.order_payment.payment_method == 'card':
+            #         order = payment_detail
+            #         break
 
+                # Create new order
+            order = Order.objects.create(customer=customer, total_price=Decimal('0.0'))
             total_price = Decimal('0.00')
+            
             for item in items_data:
                 try:
-                    variant = ProductVariants.objects.get(id = item['variant_id'])
+                    variant = ProductVariants.objects.get(id=item['variant_id'])
                     quantity = int(item['quantity'])
-                    order_item = OrderItems.objects.create(order = order, variant = variant, quantity = quantity)
+                    if variant.stock < quantity:
+                        return Response({'error': 'Insufficient stock'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    order_item = OrderItems.objects.create(order=order, variant=variant, quantity=quantity)
                     variant.stock -= quantity
                     variant.save()
                     total_price += order_item.price
                 except ProductVariants.DoesNotExist:
-                    return Response({'error':'Product not found'}, status=status.HTTP_404_NOT_FOUND)
-            
+                    return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Apply coupon if valid
+            discount = Decimal('0.00')
             if coupon_id:
                 try:
-                    coupon = Coupon.objects.get(id = coupon_id)
-                    discount_type = coupon.discount_type
-                    discount_value = coupon.discount_value
-                    min_order_value = coupon.min_order_value
-                    max_discount_value = coupon.max_discount
-                    total_price = Decimal(total_price)
-
-                    if UsedCoupon.objects.filter(user = user, coupon = coupon).exists():
-                        return Response({'error':'Coupon already used'}, status=status.HTTP_400_BAD_REQUEST)
-
-                    if total_price > min_order_value:
-                        if discount_type == 'percentage':
-                            discount = total_price * discount_value/100
-                            if discount > max_discount_value:
-                                discount = max_discount_value
+                    coupon = Coupon.objects.get(id=coupon_id)
+                    if UsedCoupon.objects.filter(user=user, coupon=coupon).exists():
+                        return Response({'error': 'Coupon already used'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    if total_price >= coupon.min_order_value:
+                        if coupon.discount_type == 'percentage':
+                            discount = total_price * coupon.discount_value / 100
+                            if discount > coupon.max_discount:
+                                discount = coupon.max_discount
                         else:
-                            discount = discount_value
-                            
-                        with transaction.atomic():
-                            UsedCoupon.objects.create(user = user, coupon = coupon)
-                    else:
-                        discount = Decimal('0.00')
+                            discount = coupon.discount_value
+                        
+                        UsedCoupon.objects.create(user=user, coupon=coupon)
                 except Coupon.DoesNotExist:
                     return Response({'error': 'Invalid Coupon'}, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                coupon = None
-                discount = Decimal('0.00')
 
-            order.total_price = Decimal(total_price)
-            order.discount_price = Decimal(discount)
-            order.coupon = coupon
+            order.total_price = total_price
+            order.discount_price = discount
+            order.coupon = coupon if coupon_id else None
             order.save()
-            address_id = data.get('address_id') 
-            address = CustomerAddress.objects.get(id = address_id, customer = customer)
-            address_data = model_to_dict(address, exclude = ['id','customer'])
-            ShippingAddress.objects.create(order = order, customer = customer,name = f"{customer.first_name} {customer.last_name}", phone_number = customer.phone_number, **address_data)
 
+            # Add shipping address
+            address_id = data.get('address_id')
+            address = CustomerAddress.objects.get(id=address_id, customer=customer)
+            address_data = model_to_dict(address, exclude=['id', 'customer'])
+            ShippingAddress.objects.create(order=order, customer=customer, name=f"{customer.first_name} {customer.last_name}", phone_number=customer.phone_number, **address_data)
 
-            payment_mode= data.get('payment_mode')
-
+            # Handle payment
+            payment_mode = data.get('payment_mode')
             if payment_mode == 'cash_on_delivery':
-                payment = Payments.objects.create(order = order, payment_method = 'cod')
-
-                try:
-                    cart = Cart.objects.get(user = user)
-                    cart.items.all().delete()
-                    cart.total_price = Decimal('0.00')
-                    cart.save()
-                except Cart.DoesNotExist:
-                    pass
-
+                Payments.objects.create(order=order, payment_method='cod')
+                self._clear_cart(user)
                 return Response({'success': True, 'message': "Order placed successfully with Cash on Delivery", 'order_id': order.id, 'total_amount': order.final_price}, status=status.HTTP_200_OK)
             
+            elif payment_mode == 'card':
+                try:
+                    razorpay_order = client.order.create({
+                        'amount': int(order.final_price * 100),
+                        'currency': 'INR',
+                        'payment_capture': 1
+                    })
+                    Payments.objects.create(
+                        order=order,
+                        payment_method='card',
+                        payment_status='pending',
+                        transaction_id=razorpay_order['id']
+                    )
+                    return Response({
+                        'success': True,
+                        'message': 'Razorpay order created',
+                        'order_id': order.id,
+                        'razorpay_order_id': razorpay_order['id'],
+                        'amount': razorpay_order['amount'],
+                        'currency': razorpay_order['currency'],
+                        'key': settings.RAZORPAY_KEY_ID,
+                    }, status=status.HTTP_200_OK)
+                except BadRequestError as e:
+                    logger.error(f"Razorpay API error: {str(e)}")
+                    return Response({'error': 'Failed to create Razorpay order'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            else:
+                return Response({'error': 'Invalid payment mode'}, status=status.HTTP_400_BAD_REQUEST)
 
-        
         except Exception as e:
-            print(f"error processing checkout: ", {str(e)})
+            logger.error(f"Error processing checkout: {str(e)}")
             return Response({'error': 'Failed to process order'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
+    def _clear_cart(self, user):
+        try:
+            cart = Cart.objects.get(user=user)
+            cart.items.all().delete()
+            cart.total_price = Decimal('0.00')
+            cart.save()
+        except Cart.DoesNotExist:
+            pass
     def get(self, request):
         customer = request.user.customer_profile
-        orders = customer.customer_order_details.all()
+        orders = customer.customer_order_details.order_by('-created_at')
 
         response_data = []
 
@@ -262,3 +305,67 @@ class Checkout(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
+
+
+class RazorpayCallback(APIView):
+    def post(self, request):
+        try:
+            user = request.user
+            data = request.data
+            razorpay_order_id = data.get('razorpay_order_id')
+            razorpay_payment_id = data.get('razorpay_payment_id')
+            razorpay_signature = data.get('razorpay_signature')
+
+            logger.info(f"Razorpay callback received: {data}")
+
+            params_dict = {
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': razorpay_payment_id,
+                'razorpay_signature': razorpay_signature
+            }
+
+            # Verify payment signature
+            try:
+                client.utility.verify_payment_signature(params_dict)
+                logger.info("Payment signature verified successfully")
+            except razorpay.errors.SignatureVerificationError as e:
+                logger.error(f"Invalid payment signature: {str(e)}")
+                return Response({'error': 'Invalid payment signature'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update payment status
+            with transaction.atomic():
+                try:
+                    payment = Payments.objects.select_for_update().get(transaction_id=razorpay_order_id)
+                    payment.transaction_id = razorpay_payment_id
+                    payment.payment_status = 'completed'
+                    payment.save()
+                    logger.info(f"Payment status updated to 'completed' for order: {razorpay_order_id}")
+                except Payments.DoesNotExist:
+                    logger.error(f"Payment not found for order: {razorpay_order_id}")
+                    return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+                except Exception as e:
+                    logger.error(f"Error updating payment status: {str(e)}")
+                    raise
+
+            # Clear cart
+            try:
+                cart = Cart.objects.get(user=user)
+                cart.items.all().delete()
+                cart.total_price = Decimal('0.00')
+                cart.save()
+                logger.info("Cart cleared successfully")
+            except Cart.DoesNotExist:
+                logger.warning("Cart not found for user")
+
+            return Response({'success': True, 'message': 'Payment successful'}, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"Error processing Razorpay callback: {str(e)}")
+            return Response({'error': 'Failed to process payment'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsCustomer])
+def payment_failed(request):
+    print('ithil ethiyo')
+    transaction_id = request.data
+    pass
