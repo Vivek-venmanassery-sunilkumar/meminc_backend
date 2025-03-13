@@ -6,5 +6,5 @@ urlpatterns = [
     path('<int:variant_id>', CartDetails.as_view()),   
     path('checkout/', Checkout.as_view()),
     path('razorpay-callback/', RazorpayCallback.as_view()),
-    path('payment-failed', payment_failed),
+    path('retry-payment/', retry_payment),
 ]

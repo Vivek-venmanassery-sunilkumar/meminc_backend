@@ -147,19 +147,9 @@ class Checkout(APIView):
             coupon_id = request.data.get('coupon_id')
             data = request.data
             items_data = data.get('items', [])
-            
+            self._clear_cart(user)
             if not items_data:
                 return Response({'error': 'No items in cart'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check for existing processing order
-            # payment_details = Order.objects.filter(customer=customer, order_status='Processing').select_related('order_payment').only('id', 'order_payment__payment_status', 'order_payment__payment_method')
-            # order = None
-            # for payment_detail in payment_details:
-            #     if payment_detail.order_payment.payment_status == 'pending' and payment_detail.order_payment.payment_method == 'card':
-            #         order = payment_detail
-            #         break
-
-                # Create new order
             order = Order.objects.create(customer=customer, total_price=Decimal('0.0'))
             total_price = Decimal('0.00')
             
@@ -212,7 +202,6 @@ class Checkout(APIView):
             payment_mode = data.get('payment_mode')
             if payment_mode == 'cash_on_delivery':
                 Payments.objects.create(order=order, payment_method='cod')
-                self._clear_cart(user)
                 return Response({'success': True, 'message': "Order placed successfully with Cash on Delivery", 'order_id': order.id, 'total_amount': order.final_price}, status=status.HTTP_200_OK)
             
             elif payment_mode == 'card':
@@ -347,16 +336,6 @@ class RazorpayCallback(APIView):
                     logger.error(f"Error updating payment status: {str(e)}")
                     raise
 
-            # Clear cart
-            try:
-                cart = Cart.objects.get(user=user)
-                cart.items.all().delete()
-                cart.total_price = Decimal('0.00')
-                cart.save()
-                logger.info("Cart cleared successfully")
-            except Cart.DoesNotExist:
-                logger.warning("Cart not found for user")
-
             return Response({'success': True, 'message': 'Payment successful'}, status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -365,7 +344,33 @@ class RazorpayCallback(APIView):
 
 @api_view(['POST'])
 @permission_classes([IsCustomer])
-def payment_failed(request):
-    print('ithil ethiyo')
-    transaction_id = request.data
-    pass
+def retry_payment(request):
+    order_id = request.data.get('order_id')
+    try:
+        order = Order.objects.get(id = order_id)
+        razorpay_order = client.order.create({
+            'amount': int(order.final_price*100),
+            'currency': 'INR',
+            'payment_capture': 1
+        })
+
+        payment = Payments.objects.get(order_id = order_id)
+        payment.transaction_id = razorpay_order['id']
+        payment.save()
+
+        
+        return Response({
+            'success': True,
+            'message': 'Razorpay order created',
+            'order_id': order.id,
+            'razorpay_order_id': razorpay_order['id'],
+            'amount': razorpay_order['amount'],
+            'currency': razorpay_order['currency'],
+            'key': settings.RAZORPAY_KEY_ID,
+        }, status=status.HTTP_200_OK)
+    except Order.DoesNotExist():
+        return Response({'error': 'order not found'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in retry_payment: {str(e)}")
+        return Response({'error': 'An error occurred while processing your request'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
