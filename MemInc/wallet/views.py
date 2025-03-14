@@ -1,13 +1,13 @@
 import razorpay
 from django.db import transaction
 from rest_framework.decorators import api_view,permission_classes
-from authentication.permissions import IsAuthenticatedAndNotBlocked, IsCustomer
+from authentication.permissions import IsAuthenticatedAndNotBlocked, IsCustomer, IsAdmin
 from decimal import Decimal
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 import logging
-from .models import Wallet, WalletTransactionCustomer
+from .models import Wallet, WalletTransactionCustomer, WalletTransactionsAdmin
 # Create your views here.
 
 
@@ -90,3 +90,32 @@ def customer_wallet_balance_fetch(request):
         return Response({'error': 'The wallet balance is zero'}, status=status.HTTP_404_NOT_FOUND)
 
     return Response({'wallet_balance': wallet.balance}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_wallet_balance_fetch(request):
+    user = request.user
+    wallet, created = Wallet.objects.get_or_create(user = user)
+    return Response({'wallet_balance': wallet.balance},status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_wallet_transactions_fetch(request):
+    user = request.user
+    try:
+        wallet_transactions = WalletTransactionsAdmin.objects.all()
+        transactions = []
+        for wallet_transaction in wallet_transactions:
+            transaction = {
+                'transacted_user': wallet_transaction.transacted_user.email,
+                'transaction_type': wallet_transaction.transaction_type,
+                'transaction_through': wallet_transaction.transaction_through,
+                'amount': wallet_transaction.amount,
+                'timestamp': wallet_transaction.timestamp,
+            }
+            transactions.append(transaction)
+    except WalletTransactionsAdmin.DoesNotExist:
+        return Response({'error': 'No transactions till now'}, status=status.HTTP_404_NOT_FOUND) 
+    return Response(transactions,status=status.HTTP_200_OK)

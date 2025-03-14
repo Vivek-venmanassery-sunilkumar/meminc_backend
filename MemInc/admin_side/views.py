@@ -1,4 +1,5 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from cart_and_orders.models import OrderItems
 from rest_framework.views import APIView
 from authentication.models import Customer, Vendor
 from rest_framework.pagination import PageNumberPagination 
@@ -191,3 +192,38 @@ def toggle(request, coupon_id):
     except Exception as e:
         return Response({'error':str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+#orders
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_order_fetch(request):
+    order_items = OrderItems.objects.order_by('created_at')
+
+    response_data_orders = []
+    for item in order_items:
+            shipping_address = item.order.order_shipping_address.first()
+            product_image = item.variant.product.product_images.first()
+            image_url = request.build_absolute_uri(product_image.image.url) if product_image else None
+            response_data_order = {
+                'order_item_id':item.id,
+                'payment_status': item.order.order_payment.payment_status,
+                'quantity': item.quantity,
+                'price': item.price,
+                'status':item.get_order_item_status_display(),
+                'created_at': item.order.created_at.strftime("%Y-%m-%d %H:%M"),
+                'image_url': image_url,
+                'shipping_address':{
+                    'name': shipping_address.name,
+                    'phone_number': shipping_address.phone_number,
+                    'street_address': shipping_address.street_address,
+                    'city': shipping_address.city,
+                    'state': shipping_address.state,
+                    'country': shipping_address.country,
+                    'pincode':shipping_address.pincode,
+                }
+            }
+            response_data_orders.append(response_data_order)
+    
+    return Response(response_data_orders, status=status.HTTP_200_OK)

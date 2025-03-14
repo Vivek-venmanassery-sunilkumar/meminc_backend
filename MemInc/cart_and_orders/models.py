@@ -67,6 +67,7 @@ class OrderItems(models.Model):
     order_item_status = models.CharField(max_length=100,choices=ORDER_ITEM_STATUS_CHOICES, default='processing')
     cancel_reason = models.CharField(max_length=150, blank = True)
     cancel_time = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         if self.order_item_status:

@@ -39,4 +39,26 @@ class WalletTransactionCustomer(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.first_name} - {self.transaction_type} - ₹{self.amount}"
+        return f"{self.user.email} - {self.transaction_type} - ₹{self.amount}"
+    
+
+class WalletTransactionsAdmin(models.Model):
+    Transaction_Types = [
+        ('credit', 'Credit'),
+        ('debit', 'Debit')
+    ]
+    Transaction_Through_Types = [
+        ('bank','Bank'),
+        ('wallet', 'Wallet'),
+        ('cash', 'Cash')
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'wallet_transactions_admin')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    transaction_type = models.CharField(choices=Transaction_Types, max_length = 10)
+    transaction_through = models.CharField(choices = Transaction_Through_Types, max_length=10)
+    transacted_user = models.ForeignKey(User, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add = True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.transaction_type} -₹{self.amount}"

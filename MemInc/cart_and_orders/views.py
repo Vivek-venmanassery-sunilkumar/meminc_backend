@@ -1,5 +1,5 @@
 import razorpay
-from wallet.models import Wallet, WalletTransactionCustomer
+from wallet.models import Wallet, WalletTransactionCustomer, WalletTransactionsAdmin
 from django.conf import settings
 from django.forms.models import model_to_dict
 from rest_framework.views import APIView
@@ -16,13 +16,14 @@ from django.db import transaction
 from decimal import Decimal
 from authentication.permissions import IsAdmin
 from admin_side.models import Coupon, UsedCoupon
+from django.contrib.auth import get_user_model
 # Create your views here.
 
 import logging
 from razorpay.errors import BadRequestError
 
 logger = logging.getLogger(__name__)
-
+User = get_user_model()
 
 class CartDetails(APIView):
     permission_classes = [IsAuthenticatedAndNotBlocked, IsCustomer]
@@ -234,6 +235,10 @@ class Checkout(APIView):
                     wallet = Wallet.objects.get(user = user)
                     wallet.debit(amount = order.final_price)
                     wallet_transaction = WalletTransactionCustomer.objects.create(user = user, amount = order.final_price, transaction_type = 'debit')
+                    admin = User.objects.get(role = 'admin')
+                    admin_wallet, created = Wallet.objects.get_or_create(user = admin)
+                    admin_wallet.credit(amount = order.final_price)
+                    admin_wallet_transaction = WalletTransactionsAdmin.objects.create(user = admin, amount = order.final_price, transaction_type = 'credit', transaction_through = 'wallet', transacted_user = user)
                 except BadRequestError as e:
                     logger.error(f"error: {str(e)}")
                     return Response({'error': 'Failed to carry out the payment'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -341,6 +346,11 @@ class RazorpayCallback(APIView):
                     payment.transaction_id = razorpay_payment_id
                     payment.payment_status = 'completed'
                     payment.save()
+                    order = payment.order
+                    admin = User.objects.get(role = 'admin')
+                    admin_wallet, created = Wallet.objects.get_or_create(user = admin)
+                    admin_wallet.credit(order.final_price)
+                    admin_wallet_transaction = WalletTransactionsAdmin.objects.create(user = admin, transacted_user = user, transaction_through = 'card', amount = order.final_price, transaction_type = 'credit')
                     logger.info(f"Payment status updated to 'completed' for order: {razorpay_order_id}")
                 except Payments.DoesNotExist:
                     logger.error(f"Payment not found for order: {razorpay_order_id}")
@@ -371,7 +381,12 @@ def retry_payment(request):
         payment.transaction_id = razorpay_order['id']
         payment.save()
 
-        
+        user = request.user
+        admin = User.objects.get(role = 'admin')
+        admin_wallet, created = Wallet.objects.get_or_create(user = admin)
+        admin_wallet.credit(order.final_price)
+        admin_wallet_transaction = WalletTransactionsAdmin.objects.create(user = admin, transacted_user = user, transaction_through = 'card', amount = order.final_price, transaction_type = 'credit')
+
         return Response({
             'success': True,
             'message': 'Razorpay order created',
@@ -387,3 +402,5 @@ def retry_payment(request):
         # Log the error for debugging
         print(f"Error in retry_payment: {str(e)}")
         return Response({'error': 'An error occurred while processing your request'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
