@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django_rest_passwordreset',
     'cart_and_orders',
-    'django_apscheduler'
+    'django_apscheduler',
+    'wallet',
 ]
 
 SITE_ID = 1

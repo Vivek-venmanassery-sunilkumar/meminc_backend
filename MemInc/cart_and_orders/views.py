@@ -1,4 +1,5 @@
 import razorpay
+from wallet.models import Wallet, WalletTransactionCustomer
 from django.conf import settings
 from django.forms.models import model_to_dict
 from rest_framework.views import APIView
@@ -137,8 +138,6 @@ client = razorpay.Client(auth = (settings.RAZORPAY_KEY_ID,settings.RAZORPAY_KEY_
 class Checkout(APIView):
     permission_classes = [IsAuthenticatedAndNotBlocked]
 
-
-
     @transaction.atomic
     def post(self, request):
         try:
@@ -229,7 +228,21 @@ class Checkout(APIView):
                 except BadRequestError as e:
                     logger.error(f"Razorpay API error: {str(e)}")
                     return Response({'error': 'Failed to create Razorpay order'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+            elif payment_mode == 'wallet':
+                try:
+                    Payments.objects.create(order = order, payment_method = payment_mode, payment_status = 'completed') 
+                    wallet = Wallet.objects.get(user = user)
+                    wallet.debit(amount = order.final_price)
+                    wallet_transaction = WalletTransactionCustomer.objects.create(user = user, amount = order.final_price, transaction_type = 'debit')
+                except BadRequestError as e:
+                    logger.error(f"error: {str(e)}")
+                    return Response({'error': 'Failed to carry out the payment'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({
+                    'success': True,
+                    'message': 'Order placed successfully with wallet',
+                    'order_id': order.id,
+                    'total_amount': order.final_price
+                    }, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Invalid payment mode'}, status=status.HTTP_400_BAD_REQUEST)
 
