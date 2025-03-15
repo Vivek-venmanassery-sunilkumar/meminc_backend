@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from cart_and_orders.models import OrderItems
+from cart_and_orders.models import OrderItems, Payments
 from rest_framework.views import APIView
 from authentication.models import Customer, Vendor
 from rest_framework.pagination import PageNumberPagination 
@@ -12,6 +12,9 @@ from vendor_side.serializers import CategorySerializer
 from authentication.permissions import IsAdmin
 from .serializers import CouponSerializer
 from .models import Coupon
+from wallet.models import Wallet, WalletTransactionsAdmin
+from django.db import transaction
+
 
 User = get_user_model()
 
@@ -199,16 +202,20 @@ def toggle(request, coupon_id):
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def admin_order_fetch(request):
-    order_items = OrderItems.objects.order_by('created_at')
+    order_items = OrderItems.objects.order_by('-created_at')
 
     response_data_orders = []
     for item in order_items:
             shipping_address = item.order.order_shipping_address.first()
             product_image = item.variant.product.product_images.first()
             image_url = request.build_absolute_uri(product_image.image.url) if product_image else None
+            if item.order_item_status == 'cancelled' and item.refund_status:
+                payment_status = f"refund of {item.refund_amount} is {item.refund_status}"
+            else:
+                payment_status = item.order.order_payment.payment_status
             response_data_order = {
                 'order_item_id':item.id,
-                'payment_status': item.order.order_payment.payment_status,
+                'payment_status': payment_status,
                 'quantity': item.quantity,
                 'price': item.price,
                 'status':item.get_order_item_status_display(),
@@ -227,3 +234,96 @@ def admin_order_fetch(request):
             response_data_orders.append(response_data_order)
     
     return Response(response_data_orders, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdmin])
+def admin_order_status_update(request, order_item_id):
+    admin = request.user
+
+    new_status = request.data.get('status', '').lower()
+    if new_status not in ['delivered', 'cancelled']:
+        return Response({'error': 'This is an invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if new_status == 'cancelled':
+        cancellation_reason = request.data.get('cancellation_reason')
+
+    try:
+        with transaction.atomic():
+            # Lock the order item to prevent concurrent updates
+            order_item = OrderItems.objects.select_for_update().get(id=order_item_id)
+            current_status = order_item.order_item_status
+
+            if current_status == 'processing':
+                return Response({'error': 'Vendor has to dispatch for further actions'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            elif current_status == 'dispatched' and new_status == 'delivered':
+                if order_item.order.order_payment.payment_status == 'pending' and order_item.order.order_payment.payment_method == 'card':
+                    return Response({'error': 'Payment is not done yet'}, status=status.HTTP_400_BAD_REQUEST)
+
+                elif order_item.order.order_payment.payment_status == 'completed':
+                    order_item.order_item_status = new_status
+                    order_item.save()
+                    return Response({'success': True}, status=status.HTTP_200_OK)
+                
+                elif order_item.order.order_payment.payment_status == 'pending' and order_item.order.order_payment.payment_method == 'cod':
+                    order_item.order_item_status = new_status
+                    order_item.save()
+
+                    order = order_item.order
+                    order.update_order_status()
+
+                    if order.order_status == 'delivered':
+                        payment = Payments.objects.get(order=order)
+                        if payment.payment_status != 'completed':
+                            payment.payment_status = 'completed'
+                            payment.save()
+
+                            admin_wallet,created = Wallet.objects.get_or_create(user=admin)
+                            admin_wallet.credit(amount=order.final_price)
+
+                            WalletTransactionsAdmin.objects.create(
+                                user=admin,
+                                amount=order.final_price,
+                                transaction_type='credit',
+                                transacted_user=order.customer.user,
+                                transaction_through='cash deposited in bank by partner',
+                            )
+                    return Response({'success': True}, status=status.HTTP_200_OK)
+            
+            elif current_status == 'cancelled' and new_status == 'delivered':
+                return Response({'error': 'Order has already been cancelled and now is returned to respective vendor'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            elif current_status == 'dispatched' and new_status == 'cancelled':
+                order_item.order_item_status = new_status
+                order_item.cancel_reason = f"{cancellation_reason} cancelled by {admin}"
+                order_item.save()
+
+                order = order_item.order
+                order.update_order_status()
+
+                if order.order_status == 'delivered':
+                    payment = Payments.objects.get(order=order)
+                    if payment.payment_status != 'completed' and payment.payment_method == 'cod':
+                        payment.payment_status = 'completed'
+                        payment.save()
+
+                        admin_wallet = Wallet.objects.get(user=admin)
+                        admin_wallet.credit(amount=order.final_price)
+
+                        WalletTransactionsAdmin.objects.create(
+                            user=admin,
+                            amount=order.final_price,
+                            transaction_type='credit',
+                            transacted_user=order.customer.user.email,
+                            transacted_through='cash deposited in bank by partner',
+                        )
+                        return Response({'success': True}, status=status.HTTP_200_OK)
+                    
+                    elif payment.payment_status != 'completed' and payment.payment_method == 'card':
+                        return Response({'error': 'Payment not done'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                return Response({'success': True}, status=status.HTTP_200_OK)
+
+    except OrderItems.DoesNotExist:
+        return Response({'error': 'The item is not found'}, status=status.HTTP_404_NOT_FOUND)

@@ -119,3 +119,23 @@ def admin_wallet_transactions_fetch(request):
     except WalletTransactionsAdmin.DoesNotExist:
         return Response({'error': 'No transactions till now'}, status=status.HTTP_404_NOT_FOUND) 
     return Response(transactions,status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsCustomer])
+def customer_wallet_transactons_fetch(request):
+    user = request.user
+    try:
+        wallet_transactions = WalletTransactionCustomer.objects.filter(user = user)
+        transactions = []
+        for wallet_transaction in wallet_transactions:
+            transaction = {
+                'transaction_id': wallet_transaction.transaction_id,
+                'transaction_type': wallet_transaction.transaction_type,
+                'amount': wallet_transaction.amount,
+                'timestamp': wallet_transaction.timestamp,
+            }
+            transactions.append(transaction)
+    except WalletTransactionCustomer.DoesNotExist:
+        return Response({'error': 'No transactions till now'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(transactions, status=status.HTTP_200_OK)

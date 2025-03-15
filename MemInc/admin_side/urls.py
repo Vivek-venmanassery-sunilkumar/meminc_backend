@@ -12,5 +12,6 @@ urlpatterns = [
     path('coupons/', Coupons.as_view()),
     path('coupons/<int:coupon_id>/', Coupons.as_view()),
     path('coupons/<int:coupon_id>/toggle/', toggle),
-    path('orders/', admin_order_fetch)
+    path('orders/', admin_order_fetch),
+    path('order-status-update/<int:order_item_id>/', admin_order_status_update),
 ]

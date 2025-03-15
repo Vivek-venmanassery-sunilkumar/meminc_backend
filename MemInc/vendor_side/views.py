@@ -270,7 +270,7 @@ def vendor_order(request):
     ).prefetch_related(
         'variant__product__product_images',
         'order__order_shipping_address'
-    )
+    ).order_by('-created_at')
 
     response_data_orders = []
     for item in order_items:
@@ -315,19 +315,24 @@ def vendor_order_status_update(request, order_item_id):
         order_item = get_object_or_404(OrderItems, id = order_item_id)
         if order_item.variant.product.vendor.id != vendor.id:
             return Response({'error': 'Vendor not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        current_status = order_item.order_item_status
         
-        if order_item.order_item_status == 'processing' and order_status =='dispatched':
+        if current_status == 'processing' and order_status =='dispatched':
             print('are we inside this function')
             order_item.order_item_status = order_status
             order_item.save()
+            order_item.order.update_order_status()
             return Response({'message': 'status updated successfully'}, status=status.HTTP_200_OK)
-        elif order_item.order_item_status == 'processing' and order_status == 'cancelled':
+        elif current_status == 'processing' and order_status == 'cancelled':
             order_item.order_item_status = order_status
             order_item.cancel_reason = f"{cancel_reason} cancelled by {vendor.first_name}"
             order_item.save()
+            order_item.order.update_order_status()
             return Response({'message': 'status and reason updated successfully'}, status=status.HTTP_200_OK)
-        elif order_item.order_item_status == 'dispatched':
+        elif current_status == 'dispatched':
             return Response({'message':'The order has already been dispatched and can only be returned or cancelled by the admin. You can raise a concern if you like.'}, status=status.HTTP_400_BAD_REQUEST)
+        elif current_status == 'cancelled' and order_status == 'cancelled':
+            return Response({'message': 'The order has already been cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'error':'Invalid status transition'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:

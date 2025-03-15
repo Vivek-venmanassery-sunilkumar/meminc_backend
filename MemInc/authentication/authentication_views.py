@@ -95,7 +95,7 @@ class GoogleLoginView(APIView):
                 httponly=True,
                 path='/',
                 secure=False,  # Set to True in production with HTTPS
-                max_age=60 * 15,  # 15 minutes
+                max_age=60 * 60,  # 60 minutes
                 samesite='Lax',
             )
             response.set_cookie(
@@ -316,7 +316,7 @@ class LoginView(APIView):
                     httponly = True,
                     path = '/',
                     secure = False,
-                    max_age = 60*15,
+                    max_age = 60*60,
                     samesite='Lax',
                 )
 
