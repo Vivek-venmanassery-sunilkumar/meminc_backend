@@ -14,7 +14,7 @@ from .serializers import CouponSerializer
 from .models import Coupon
 from wallet.models import Wallet, WalletTransactionsAdmin
 from django.db import transaction
-
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -240,90 +240,62 @@ def admin_order_fetch(request):
 @permission_classes([IsAdmin])
 def admin_order_status_update(request, order_item_id):
     admin = request.user
-
     new_status = request.data.get('status', '').lower()
+    cancellation_reason = request.data.get('cancellation_reason', '')
     if new_status not in ['delivered', 'cancelled']:
         return Response({'error': 'This is an invalid status'}, status=status.HTTP_400_BAD_REQUEST)
     
-    if new_status == 'cancelled':
-        cancellation_reason = request.data.get('cancellation_reason')
-
     try:
         with transaction.atomic():
             # Lock the order item to prevent concurrent updates
             order_item = OrderItems.objects.select_for_update().get(id=order_item_id)
+            order = order_item.order
+            payment = order.order_payment
             current_status = order_item.order_item_status
 
             if current_status == 'processing':
-                return Response({'error': 'Vendor has to dispatch for further actions'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            elif current_status == 'dispatched' and new_status == 'delivered':
-                if order_item.order.order_payment.payment_status == 'pending' and order_item.order.order_payment.payment_method == 'card':
-                    return Response({'error': 'Payment is not done yet'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Item must be dispatched first'}, status=status.HTTP_400_BAD_REQUEST)
 
-                elif order_item.order.order_payment.payment_status == 'completed':
-                    order_item.order_item_status = new_status
-                    order_item.save()
-                    return Response({'success': True}, status=status.HTTP_200_OK)
+            if current_status == 'cancelled' and new_status == 'delivered':
+                return Response({'error': 'Cancelled item cannot be delivered'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+            #Handle delivery            
+            if new_status == 'delivered' and current_status == 'dispatched':
+                if payment.payment_status == 'pending' and payment.payment_method == 'card':
+                    return Response({'error': 'Payment pending'}, status=status.HTTP_400_BAD_REQUEST)
                 
-                elif order_item.order.order_payment.payment_status == 'pending' and order_item.order.order_payment.payment_method == 'cod':
-                    order_item.order_item_status = new_status
-                    order_item.save()
-
-                    order = order_item.order
-                    order.update_order_status()
-
-                    if order.order_status == 'delivered':
-                        payment = Payments.objects.get(order=order)
-                        if payment.payment_status != 'completed':
-                            payment.payment_status = 'completed'
-                            payment.save()
-
-                            admin_wallet,created = Wallet.objects.get_or_create(user=admin)
-                            admin_wallet.credit(amount=order.final_price)
-
-                            WalletTransactionsAdmin.objects.create(
-                                user=admin,
-                                amount=order.final_price,
-                                transaction_type='credit',
-                                transacted_user=order.customer.user,
-                                transaction_through='cash deposited in bank by partner',
-                            )
-                    return Response({'success': True}, status=status.HTTP_200_OK)
-            
-            elif current_status == 'cancelled' and new_status == 'delivered':
-                return Response({'error': 'Order has already been cancelled and now is returned to respective vendor'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            elif current_status == 'dispatched' and new_status == 'cancelled':
                 order_item.order_item_status = new_status
-                order_item.cancel_reason = f"{cancellation_reason} cancelled by {admin}"
                 order_item.save()
 
-                order = order_item.order
-                order.update_order_status()
 
-                if order.order_status == 'delivered':
-                    payment = Payments.objects.get(order=order)
-                    if payment.payment_status != 'completed' and payment.payment_method == 'cod':
+                #handle COD payment completion
+                if payment.payment_method == 'cod' and payment.pament_status == 'pending':
+                    non_cancelled_items = order.order_items.exclude(order_item_status = 'cancelled')
+                    if all(item.order_item_status == 'delivered' for item in non_cancelled_items):
                         payment.payment_status = 'completed'
                         payment.save()
 
-                        admin_wallet = Wallet.objects.get(user=admin)
-                        admin_wallet.credit(amount=order.final_price)
-
+                        admin_wallet, _ = Wallet.objects.get_or_create(user = admin)
+                        admin_wallet.credit(order.final_price)
                         WalletTransactionsAdmin.objects.create(
-                            user=admin,
-                            amount=order.final_price,
-                            transaction_type='credit',
-                            transacted_user=order.customer.user.email,
-                            transacted_through='cash deposited in bank by partner',
+                            user = admin,
+                            amount = order.final_price,
+                            transaction_type = 'credit',
+                            transacted_user = order.customer.user
                         )
-                        return Response({'success': True}, status=status.HTTP_200_OK)
-                    
-                    elif payment.payment_status != 'completed' and payment.payment_method == 'card':
-                        return Response({'error': 'Payment not done'}, status=status.HTTP_400_BAD_REQUEST)
-                
-                return Response({'success': True}, status=status.HTTP_200_OK)
 
+                return Response({'success': True}, status = status.HTTP_200_OK)
+            
+            #Handle cancellation
+            if new_status == 'cancelled' and current_status == 'dispatched':
+                order_item.order_item_status = new_status
+                order_item.cancel_reason = f"{cancellation_reason} - cancelled by {admin.email}"
+                order_item.cancel_time = timezone.now()
+                order_item.save()
+                return Response({'success': True}, status = status.HTTP_200_OK)
+            
     except OrderItems.DoesNotExist:
-        return Response({'error': 'The item is not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Order item not found'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -6,6 +6,7 @@ from decimal import Decimal
 from wallet.models import WalletTransactionCustomer,WalletTransactionsAdmin, Wallet
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db import transaction
 
 User = get_user_model()
 # Create your models here.
@@ -45,80 +46,82 @@ class Order(models.Model):
         super().save(*args, **kwargs)
 
     def update_order_status(self):
+        with transaction.atomic():
+            items = self.order_items.select_for_update().all()
+            if not items.exists():
+                self.order_status = 'Processing'
+                self.save()
+                return
+            non_cancelled_items = [item for item in items if item.order_item_status != 'cancelled']
 
-        items = self.order_items.all()
-
-        original_discount_price = self.discount_price
-        has_payment = hasattr(self, 'order_payment')
-
-
-        for item in items:
-            if item.order_item_status == 'cancelled':
-                order = item.order
-                order.total_price -= item.price
-                order.save()
-                # Track the original discount value before resetting it
-
-                if self.coupon and self.coupon.min_order_value:
-                    if self.total_price < self.coupon.min_order_value:
-                        self.discount_price = Decimal('0.00')
-                        self.save()
-
-                # Handle refund logic
-                if has_payment and self.order_payment.payment_status == 'completed' and self.order_payment.payment_method != 'cod':
-                    refund_amount = item.price
-
-                    # Use the original discount value for refund calculation
-                    if original_discount_price > 0:
-                        refund_amount -= original_discount_price
-                        self.discount_price = Decimal('0.00')
-                        self.save()
-
-                    # Credit the refund amount to the customer's wallet
-                    if not hasattr(self.customer.user, 'wallet'):
-                        # Create a wallet if it doesn't exist
-                        Wallet.objects.create(user=self.customer.user)
-                    wallet = self.customer.user.wallet
-                    wallet.credit(amount = refund_amount)
-                    WalletTransactionCustomer.objects.create(
-                        user=self.customer.user,
-                        amount=refund_amount,
-                        transaction_type='credit',
-                        transaction_id=f"REFUND_{self.id}_{item.id}_{timezone.now()}"
-                    )
-                    #admin wallet update pending
-                    admin = User.objects.get(role = 'admin')
-                    admin_wallet, created = Wallet.objects.get_or_create(user = admin)
-                    admin_wallet.debit(amount = refund_amount)
-                    admin_wallet_transaction = WalletTransactionsAdmin.objects.create(
-                        user = admin,
-                        amount = refund_amount,
-                        transaction_type = 'debit',
-                        transaction_through = 'wallet',
-                        transacted_user = self.customer.user
-                    )
-                    item.refund_amount = refund_amount
-                    item.refund_status = 'processed'
-                    item.save() 
-        non_cancelled_items = [item for item in items if item.order_item_status != 'cancelled']
-
-        # Determine the overall order status based on non-cancelled items
-        if not non_cancelled_items:
-            # All items are cancelled
-            self.order_status = 'cancelled'
-        elif all(item.order_item_status == 'delivered' for item in non_cancelled_items):
-            # All non-cancelled items are delivered
-            self.order_status = 'delivered'
-        elif all(item.order_item_status == 'dispatched' for item in non_cancelled_items):
-            # All non-cancelled items are dispatched
-            self.order_status = 'dispatched'
-        elif any(item.order_item_status == 'cancelled' for item in items):
-            # Some items are cancelled, but not all non-cancelled items are delivered/dispatched
-            self.order_status = 'cancelled'
-        else:
-            # Default to processing
-            self.order_status = 'processing'
+            #Determin order status
+            if not non_cancelled_items:
+                self.order_status = 'cancelled'
+            elif all(item.order_item_status == 'delivered' for item in non_cancelled_items):
+                self.order_status = 'delivered'
+            elif all(item.order_item_status == 'dispatched' for item in non_cancelled_items):
+                self.order_status = 'dispatched'
+            else:
+                self.order_status = 'Processing'
+            
             self.save(update_fields = ['order_status'])
+    
+    def process_refund(self, order_item):
+        """Handle refund logic for a cancelled item"""
+        if order_item.refund_status == 'processed':
+            return 
+        
+        with transaction.atomic():
+            payment = getattr(self, 'order_payment', None)
+            if not payment or payment.payment_status != 'completed':
+                return
+
+            refund_amount = order_item.price
+            original_discount = self.discount_price
+
+            if self.coupon:
+                remaining_items = self.order_items.exclude(id=order_item.id)
+                remaining_total_price = sum(item.price for item in remaining_items if item.order_item_status != 'cancelled')
+
+                if remaining_total_price < self.coupon.min_order_value:
+                    refund_amount -= original_discount
+                    self.discount_price = Decimal('0.00')
+                    # self.total_price -= order_item.price
+                    self.save()
+            #Adjust discount if coupon minimum value is no longer met
+            if self.coupon and self.total_price < self.coupon.min_order_value:
+                refund_amount -= original_discount
+                self.discount_price = Decimal('0.00')
+                self.total_price -= order_item.price
+                self.save()
+            
+            # Process wallet transactions
+            customer_wallet, _ = Wallet.objects.get_or_create(user = self.customer.user)
+            admin = User.objects.get(role = 'admin')
+            admin_wallet, _ = Wallet.objects.get_or_create(user = admin)
+
+            #Credit customer wallet
+            customer_wallet.credit(refund_amount)
+            WalletTransactionCustomer.objects.create(
+                user = self.customer.user,
+                amount = refund_amount,
+                transaction_type = 'credit',
+                transaction_id = f"Refund_{self.id}_{order_item.variant.product.name}_{timezone.now().timestamp()}"
+            )
+
+            # Debit admin wallet
+            admin_wallet.debit(refund_amount)
+            WalletTransactionsAdmin.objects.create(
+                user=admin,
+                amount = refund_amount,
+                transaction_type = 'debit',
+                transaction_through = 'wallet',
+                transacted_user = self.customer.user
+            )
+
+            order_item.refund_amount = refund_amount
+            order_item.refund_status = 'processed'
+            order_item.save()
 
 class OrderItems(models.Model):
     ORDER_ITEM_STATUS_CHOICES = [
@@ -139,11 +142,11 @@ class OrderItems(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        if self.order_item_status:
-            self.order_item_status = self.order_item_status.lower()
         self.price = self.variant.price * self.quantity
         super().save(*args, **kwargs)
-       
+        if self.order_item_status == 'cancelled':
+            self.order.process_refund(self)
+        self.order.update_order_status()
 
 class Payments(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='order_payment')
