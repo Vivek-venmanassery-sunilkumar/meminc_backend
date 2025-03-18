@@ -105,7 +105,7 @@ def admin_wallet_balance_fetch(request):
 def admin_wallet_transactions_fetch(request):
     user = request.user
     try:
-        wallet_transactions = WalletTransactionsAdmin.objects.all()
+        wallet_transactions = WalletTransactionsAdmin.objects.all().order_by('-timestamp')
         transactions = []
         for wallet_transaction in wallet_transactions:
             transaction = {
@@ -126,7 +126,7 @@ def admin_wallet_transactions_fetch(request):
 def customer_wallet_transactons_fetch(request):
     user = request.user
     try:
-        wallet_transactions = WalletTransactionCustomer.objects.filter(user = user)
+        wallet_transactions = WalletTransactionCustomer.objects.filter(user = user).order_by('-timestamp')
         transactions = []
         for wallet_transaction in wallet_transactions:
             transaction = {
