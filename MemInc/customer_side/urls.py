@@ -8,7 +8,8 @@ urlpatterns = [
     path('update-profile/', customer_profile_update),
     path('addresses/', AddressManagementCustomer.as_view()),
     path('addresses/<int:address_id>', AddressManagementCustomer.as_view()),
-    path('coupons/', customer_coupons)
+    path('coupons/', customer_coupons),
+    path('order/<int:order_id>/item/<int:order_item_id>/cancel/', customer_order_item_cancel),
 ]
 
 

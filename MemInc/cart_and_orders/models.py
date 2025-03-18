@@ -37,8 +37,6 @@ class Order(models.Model):
     final_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     order_status = models.CharField(max_length=100,default='Processing')
-    cancel_reason = models.CharField(max_length=150, blank=True)
-    cancel_time = models.DateTimeField(null=True, blank=True)
     
     
     def save(self, *args, **kwargs):
@@ -86,7 +84,6 @@ class Order(models.Model):
                 if remaining_total_price < self.coupon.min_order_value:
                     refund_amount -= original_discount
                     self.discount_price = Decimal('0.00')
-                    # self.total_price -= order_item.price
                     self.save()
             #Adjust discount if coupon minimum value is no longer met
             if self.coupon and self.total_price < self.coupon.min_order_value:

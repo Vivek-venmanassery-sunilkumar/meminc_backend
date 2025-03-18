@@ -10,6 +10,8 @@ from authentication.permissions import IsAuthenticatedAndNotBlocked,IsCustomer
 from authentication.models import CustomerAddress
 from admin_side.models import Coupon, UsedCoupon
 from decimal import Decimal
+from cart_and_orders.models import Order, OrderItems
+from django.utils import timezone
 # Create your views here.
 
 
@@ -164,3 +166,18 @@ def customer_coupons(request):
         return Response(response, status=status.HTTP_200_OK)
     except Coupon.DoesNotExist:
         return Response({'message':'No available coupons'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+@api_view(['PATCH'])
+@permission_classes([IsCustomer])
+def customer_order_item_cancel(request, order_id, order_item_id):
+    customer = request.user.customer_profile
+    order_item = OrderItems.objects.get(id = order_item_id)
+    cancellation_reason = request.data.get('cancellation_reason')
+
+    order_item.order_item_status = 'cancelled'
+    order_item.cancel_reason = f"{cancellation_reason} - cancelled by {customer.first_name}"
+    order_item.cancel_time = timezone.now()
+    order_item.save()
+    return Response({'success': True}, status = status.HTTP_200_OK)

@@ -286,6 +286,7 @@ class Checkout(APIView):
                     'pincode': shipping_address.pincode,
                 },
                 'order_items': [{
+                    'id': order_item.id,
                     'name':order_item.variant.product.name,
                     'brand': order_item.variant.product.vendor.company_name,
                     'variant':f"{order_item.variant.variant_unit} {order_item.variant.quantity}",

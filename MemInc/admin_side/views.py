@@ -293,6 +293,9 @@ def admin_order_status_update(request, order_item_id):
                 order_item.cancel_reason = f"{cancellation_reason} - cancelled by {admin.email}"
                 order_item.cancel_time = timezone.now()
                 order_item.save()
+                product_item = order_item.variant
+                product_item.stock += order_item.quantity
+                product_item.save()
                 return Response({'success': True}, status = status.HTTP_200_OK)
             
     except OrderItems.DoesNotExist:
