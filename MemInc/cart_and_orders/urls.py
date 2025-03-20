@@ -8,4 +8,5 @@ urlpatterns = [
     path('razorpay-callback/', RazorpayCallback.as_view()),
     path('retry-payment/', retry_payment),
     path('wishlist/', WishListFunctions.as_view()),
+    path('wishlist/<int:variant_id>/', WishListFunctions.as_view())
 ]

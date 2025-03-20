@@ -457,3 +457,16 @@ class WishListFunctions(APIView):
             wishlist_items_data.append(item_data)
 
         return Response({'wishlist_items': wishlist_items_data},status=status.HTTP_200_OK)
+
+    def delete(self, request, variant_id):
+        try:
+            wishlist = WishList.objects.get(user = request.user)
+            variant = ProductVariants.objects.get(id = variant_id)
+            wishlist_item = WishListItems.objects.filter(wishlist = wishlist, variant = variant)
+            wishlist_item.delete()
+        except ProductVariants.DoesNotExist:
+            return Response({'error': 'variant invalid'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({'success': True}, status=status.HTTP_200_OK)
+        
+
