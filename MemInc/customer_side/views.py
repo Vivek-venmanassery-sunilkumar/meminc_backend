@@ -54,17 +54,12 @@ def product_listing_customer_side(request):
 
 
 @api_view(['PATCH'])
+@permission_classes([IsCustomer])
 def customer_profile_update(request):
     user = request.user
-    if not user.is_authenticated or user.is_blocked:
-        return Response({"error":"Customer is not found"}, status=status.HTTP_404_NOT_FOUND)
     
     customer_instance = user.customer_profile
-    data = request.data.copy()
-    if 'profile_picture' not in data:
-        data.pop('profile_picture', None)
-
-    serializer = CustomerSerializer(instance = customer_instance, data = data, partial = True)
+    serializer = CustomerSerializer(instance = customer_instance, data = request.data, partial = True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     serializer.save()

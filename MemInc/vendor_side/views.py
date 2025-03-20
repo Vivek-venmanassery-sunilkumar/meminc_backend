@@ -108,18 +108,13 @@ def product_listing_vendor(request):   #This get method is used to call all not 
 
 
 @api_view(['PATCH'])
+@permission_classes([IsVendor])
 def vendor_profile_update(request):
     user = request.user
-    if not user.is_authenticated or user.is_blocked or not user.is_verified:
-        return Response({"error":"Vendor is not found"},status=status.HTTP_404_NOT_FOUND)
     
     vendor_instance = user.vendor_profile
-    data = request.data.copy()
 
-    if 'profile_picture' not in data:
-        data.pop('profile_picture',None)
-    
-    serializer = VendorSerializer(instance = vendor_instance, data = data, partial = True)
+    serializer = VendorSerializer(instance = vendor_instance, data = request.data, partial = True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     serializer.save()
