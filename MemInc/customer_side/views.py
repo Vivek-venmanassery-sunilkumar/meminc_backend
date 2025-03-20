@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
-from vendor_side.models import Products
+from vendor_side.models import Products, ProductVariants
 from rest_framework.decorators import api_view, permission_classes
 from admin_side.views import CustomPagination
 from authentication.serializers import CustomerSerializer
@@ -12,12 +12,13 @@ from admin_side.models import Coupon, UsedCoupon
 from decimal import Decimal
 from cart_and_orders.models import Order, OrderItems
 from django.utils import timezone
+
 # Create your views here.
 
 
 @api_view(['GET'])
 def product_listing_customer_side(request):
-    products = Products.objects.all()
+    products = Products.objects.all().order_by('-created_at')
 
     product_data = []
     for product in products:
@@ -29,7 +30,7 @@ def product_listing_customer_side(request):
                 if variant.is_deleted == False:
                     variant_data.append({
                         'id': variant.id,
-                        'name': f'{variant.quantity} {variant.variant_unit}',
+                        'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
                         'price': variant.price,
                         'stock': variant.stock,
                         'is_out_of_stock': variant.stock == 0,
@@ -181,3 +182,61 @@ def customer_order_item_cancel(request, order_id, order_item_id):
     order_item.cancel_time = timezone.now()
     order_item.save()
     return Response({'success': True}, status = status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedAndNotBlocked])
+def product_filter_customer(request):
+    categories = request.GET.getlist('categories')
+    brands = request.GET.getlist('brands')
+    min_price = request.GET.get('min_price', 0)
+    max_price = request.GET.get('max_price', float("inf"))
+
+    products = Products.objects.filter(is_deleted = False)
+
+
+    if categories:
+        products = products.filter(category__id__in = categories)
+    
+    if brands:
+        products = products.filter(vendor__company_name__in = brands)
+
+    variants = ProductVariants.objects.filter(
+        price__gte = min_price,
+        price__lte = max_price,
+        is_deleted = False,
+    )
+
+    product_ids = variants.values_list('product_id', flat=True).distinct()
+
+    products = products.filter(id__in = product_ids)
+
+    product_data = []
+    for product in products:
+        image_url = request.build_absolute_uri(product.product_images.first().image.url) if product.product_images.first() else None
+        variants = product.variant_profile.filter(is_deleted = False)
+        variant_data = []
+        for variant in variants:
+            variant_data.append({
+                'id': variant.id,
+                'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
+                'price': variant.price,
+                'stock': variant.stock,
+                'is_out_of_stock': variant.stock == 0,
+            })
+
+        product_data.append({
+            'id': product.id,
+            'product_name': product.name,
+            'product_image': image_url,
+            'category': product.category.category,
+            'company_name': product.vendor.company_name,
+            'variants': variant_data,
+        })
+
+    paginator = CustomPagination()
+    paginated_products = paginator.paginate_queryset(product_data, request)
+
+    if paginated_products is not None:
+        return paginator.get_paginated_response(paginated_products)
+    return Response([])

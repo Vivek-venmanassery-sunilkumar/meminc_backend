@@ -25,7 +25,14 @@ class CartItems(models.Model):
     variant = models.ForeignKey(ProductVariants, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default = 1)
 
+class WishList(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='wishlist')
 
+
+class WishListItems(models.Model):
+    wishlist = models.ForeignKey(WishList, on_delete=models.CASCADE, related_name='wishlist_items')
+    variant = models.ForeignKey(ProductVariants, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 

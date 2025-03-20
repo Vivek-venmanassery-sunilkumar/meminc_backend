@@ -7,4 +7,5 @@ urlpatterns = [
     path('checkout/', Checkout.as_view()),
     path('razorpay-callback/', RazorpayCallback.as_view()),
     path('retry-payment/', retry_payment),
+    path('wishlist/', WishListFunctions.as_view()),
 ]

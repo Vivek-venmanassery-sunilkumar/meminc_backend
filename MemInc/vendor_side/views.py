@@ -337,5 +337,13 @@ def vendor_order_status_update(request, order_item_id):
         print(str(e))
         return Response({'error':'An Internal server error occured'}, status = status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        
-        
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedAndNotBlocked])
+def brands_fetch(request):
+    vendors = Vendor.objects.all()
+    brands = set()
+    for vendor in vendors:
+        brands.add(vendor.company_name)
+    
+    return Response({'brands': list(brands)}, status=status.HTTP_200_OK)

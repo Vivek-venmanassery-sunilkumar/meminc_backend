@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
+from authentication.permissions import IsAuthenticatedAndNotBlocked
 from cart_and_orders.models import OrderItems, Payments
 from rest_framework.views import APIView
 from authentication.models import Customer, Vendor
@@ -91,6 +92,7 @@ def verify_vendor(request):
 
 
 class Categoryview(APIView):
+    permission_classes = [IsAuthenticatedAndNotBlocked]
     def get(self,request):
         user = request.user
 

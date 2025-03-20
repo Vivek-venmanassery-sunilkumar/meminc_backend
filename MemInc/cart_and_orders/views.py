@@ -17,8 +17,6 @@ from decimal import Decimal
 from authentication.permissions import IsAdmin
 from admin_side.models import Coupon, UsedCoupon
 from django.contrib.auth import get_user_model
-# Create your views here.
-
 import logging
 from razorpay.errors import BadRequestError
 
@@ -101,7 +99,6 @@ class CartDetails(APIView):
                     cart_item.quantity -= 1
                     cart_item.save()
             
-        print("cart_items object: ", cart_item)
         total_price = cart.calculate_total_price()
 
         updated_item = {
@@ -405,3 +402,58 @@ def retry_payment(request):
         return Response({'error': 'An error occurred while processing your request'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
+
+class WishListFunctions(APIView):
+    permission_classes = [IsCustomer]
+
+    #adding and removing from the wishlist using the above function.
+
+    def post(self, request):
+        user = request.user
+        wishlist, created = WishList.objects.get_or_create(user = user)
+
+        variant_id = request.data.get('variant_id')
+        if not variant_id:
+            return Response({'error': 'variant id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        variant = get_object_or_404(ProductVariants, id = variant_id)
+        if WishListItems.objects.filter(variant = variant, wishlist = wishlist).exists():
+            wishlistitem = WishListItems.objects.get(variant = variant, wishlist = wishlist)
+            wishlistitem.delete()
+            return Response({'success': True}, status=status.HTTP_200_OK) 
+        wishlistitem = WishListItems.objects.create(
+            wishlist = wishlist,
+            variant = variant
+        )
+        return Response({'success':True}, status=status.HTTP_200_OK)
+
+    def get(self, request):
+        user = request.user
+        wishlist, created  = WishList.objects.get_or_create(user = user)
+        try: 
+            wishlist_items = WishListItems.objects.filter(wishlist = wishlist).order_by('-created_at')
+        except WishListItems.DoesNotExist:
+            return Response({'error':'No wishlist items at the moment'}, status=status.HTTP_404_NOT_FOUND)
+        wishlist_items_data = []
+        for wishlist_item in wishlist_items:
+            variant = wishlist_item.variant
+            product = variant.product
+            vendor = product.vendor
+
+            product_image= product.product_images.first()
+            image_url =request.build_absolute_uri(product_image.image.url) if product_image else None
+            variant_name = f"{variant.variant_unit} {variant.quantity}" if variant.variant_unit == 'packet of' else f"{variant.quantity} {variant.variant_unit}"
+
+
+            item_data = {
+                'variant_id': variant.id,
+                'product_id': product.id,
+                'product_name': product.name,
+                'product_image': image_url,
+                'variant_name':variant_name,
+                'price': str(variant.price),
+                'brand': vendor.company_name
+            }
+            wishlist_items_data.append(item_data)
+
+        return Response({'wishlist_items': wishlist_items_data},status=status.HTTP_200_OK)

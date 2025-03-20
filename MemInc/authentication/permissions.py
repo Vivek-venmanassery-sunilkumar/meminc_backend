@@ -21,10 +21,10 @@ class IsAdmin(BasePermission):
 
 class IsVendor(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'vendor'
+        return request.user.is_authenticated and request.user.role == 'vendor' and not request.user.is_blocked
 
 
 class IsCustomer(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'customer'
+        return request.user.is_authenticated and request.user.role == 'customer' and not request.user.is_blocked
     
