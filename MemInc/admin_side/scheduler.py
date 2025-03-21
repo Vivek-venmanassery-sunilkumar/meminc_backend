@@ -7,7 +7,6 @@ def update_coupon_status():
     
     current_date = now().date()  # Extract only the date part
 
-
     print(f"Current date: {current_date}")
 
     updated_active = Coupon.objects.filter(start_date__lte =current_date, expiry_date__gte = current_date).update(is_active = True)

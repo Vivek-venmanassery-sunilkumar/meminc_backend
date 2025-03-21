@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from decimal import Decimal
+from cart_and_orders.models import OrderItems,Order
 # Create your models here.
 
 
@@ -62,3 +63,25 @@ class WalletTransactionsAdmin(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.transaction_type} -₹{self.amount}"
+
+class WalletTransactionsVendor(models.Model):
+    Transaction_Types = [
+        ('credit','Credit')
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wallet_transactions_vendor')
+    order_item = models.ForeignKey(OrderItems, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    transaction_type = models.CharField(choices = Transaction_Types)
+    transaction_through = models.CharField(default = 'wallet')
+    transacted_user = models.ForeignKey(User, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add = True)
+
+class CommissionRecievedAdminPerOrder(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_commission_per_orderitem')
+    commission_needed_to_be_kept = models.DecimalField(max_digits=12, decimal_places=2)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    is_discount_present = models.BooleanField(default = True)
+    commission_kept = models.DecimalField(max_digits=12, decimal_places=2)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    

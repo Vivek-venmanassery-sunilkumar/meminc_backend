@@ -3,7 +3,6 @@ from authentication.models import CustomUser,Customer
 from vendor_side.models import ProductVariants
 from admin_side.models import Coupon
 from decimal import Decimal
-from wallet.models import WalletTransactionCustomer,WalletTransactionsAdmin, Wallet
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db import transaction
@@ -72,6 +71,8 @@ class Order(models.Model):
             self.save(update_fields = ['order_status'])
     
     def process_refund(self, order_item):
+
+        from wallet.models import WalletTransactionCustomer,WalletTransactionsAdmin, Wallet
         """Handle refund logic for a cancelled item"""
         if order_item.refund_status == 'processed':
             return 
@@ -126,6 +127,13 @@ class Order(models.Model):
             order_item.refund_amount = refund_amount
             order_item.refund_status = 'processed'
             order_item.save()
+        
+    def are_all_payments_done_to_vendor(self):
+        non_cancelled_items = self.order_items.exclude(order_item_status = 'cancelled')
+        if not non_cancelled_items.exists():
+            return False
+        
+        return all(item.is_payment_done_to_vendor for item in non_cancelled_items)
 
 class OrderItems(models.Model):
     ORDER_ITEM_STATUS_CHOICES = [
@@ -142,15 +150,28 @@ class OrderItems(models.Model):
     cancel_reason = models.CharField(max_length=150, blank = True)
     refund_status = models.CharField(max_length=100, blank=True, null=True)
     refund_amount = models.DecimalField(max_digits = 10, decimal_places = 2, null=True, blank=True)
+    is_payment_done_to_vendor = models.BooleanField(default=False)
+    payment_done_to_vendor = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     cancel_time = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
         self.price = self.variant.price * self.quantity
+        
+        if self.pk:
+            previous_status = OrderItems.objects.get(pk = self.pk).order_item_status
+        else:
+            previous_status = None
+        
+        if self.order_item_status == 'delivered' and previous_status != 'delivered':
+            self.delivered_at = timezone.now()
+        
         super().save(*args, **kwargs)
         if self.order_item_status == 'cancelled':
             self.order.process_refund(self)
         self.order.update_order_status()
+
 
 class Payments(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='order_payment')

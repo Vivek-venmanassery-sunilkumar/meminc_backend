@@ -84,10 +84,7 @@ def customer_wallet_credit_callback(request):
 @permission_classes([IsCustomer])
 def customer_wallet_balance_fetch(request):
     user = request.user
-    try:
-        wallet = Wallet.objects.get(user = user)
-    except Wallet.DoesNotExist:
-        return Response({'error': 'The wallet balance is zero'}, status=status.HTTP_404_NOT_FOUND)
+    wallet,created = Wallet.objects.get_or_create(user = user)
 
     return Response({'wallet_balance': wallet.balance}, status=status.HTTP_200_OK)
 
