@@ -10,4 +10,6 @@ urlpatterns = [
     path('admin/', admin_wallet_balance_fetch),
     path('admin-transactions/', admin_wallet_transactions_fetch),
     path('customer-transactions/', customer_wallet_transactons_fetch),
+    path('vendor/', vendor_wallet_balance_fetch),
+    path('vendor-transactions/', vendor_wallet_transactions_fetch),
 ]
