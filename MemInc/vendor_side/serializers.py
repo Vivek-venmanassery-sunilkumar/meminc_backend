@@ -4,6 +4,10 @@ from authentication.models import Vendor
 from .models import Products,ProductVariants,Categories,ProductImages
 from django.db import transaction
 from django.core.exceptions import ValidationError 
+from django.utils.timezone import now
+from datetime import timedelta
+from cart_and_orders.models import OrderItems
+from django.db.models import Sum
         
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -191,9 +195,55 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 
-            
-        
-
-
-
+class VendorDashboard(serializers.Serializer):
+    total_sales = serializers.DecimalField(max_digits=10, decimal_places=2, read_only = True) 
+    payout_recieved = serializers.DecimalField(max_digits=10, decimal_places=2, read_only = True)
+    payout_pending = serializers.IntegerField(read_only = True)
+    total_orders_recieved = serializers.IntegerField(read_only = True)
+    completed_orders = serializers.IntegerField(read_only = True)
+    cancelled_orders = serializers.IntegerField(read_only = True)
+    pending_orders = serializers.IntegerField(read_only = True)
+    top_selling_product = serializers.CharField(max_length = 150, read_only = True)
+    company_name = serializers.CharField(max_length = 100, read_only = True)
     
+
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        filter_type = request.query_params.get('filter', 'daily')    
+        end_date = now()
+        vendor = request.user.vendor_profile
+        if filter_type == 'daily':
+            start_date = end_date - timedelta(days=1)
+        elif filter_type == 'weekly':
+            start_date = end_date - timedelta(weeks = 1)
+        elif filter_type == 'monthly':
+            start_date = end_date - timedelta(days = 30)
+        else:
+            start_date = end_date - timedelta(days = 1)
+
+        total_sales = OrderItems.objects.filter(order_item_status = 'delivered', created_at__range = (start_date, end_date), variant__product__vendor = vendor).aggregate(total_revenue_generated = Sum('price'))['total_revenue_generated'] or 0
+        payout_recieved = OrderItems.objects.filter(is_payment_done_to_vendor = True, created_at__range = (start_date, end_date), variant__product__vendor = vendor).aggregate(total_payment_received = Sum('payment_done_to_vendor'))['total_payment_received'] or 0
+        payout_pending = OrderItems.objects.filter(order_item_status = 'delivered', is_payment_done_to_vendor = False, created_at__range=(start_date, end_date), variant__product__vendor = vendor).count() or 0
+        total_orders_recieved = OrderItems.objects.filter(created_at__range = (start_date, end_date), variant__product__vendor = vendor).count() or 0
+        completed_orders = OrderItems.objects.filter(created_at__range = (start_date, end_date), variant__product__vendor = vendor, order_item_status = 'delivered').count() or 0
+        cancelled_orders = OrderItems.objects.filter(created_at__range = (start_date, end_date), variant__product__vendor = vendor, order_item_status = 'cancelled').count() or 0
+        pending_orders = OrderItems.objects.exclude(order_item_status__in = ['delivered', 'cancelled']).filter(created_at__range = (start_date, end_date), variant__product__vendor = vendor).count() or 0
+        top_selling_product = OrderItems.objects.filter(created_at__range = (start_date, end_date), order_item_status = 'delivered', variant__product__vendor = vendor).values('variant__product__name').annotate(total = Sum('quantity')).order_by('-total').first()
+        company_name = vendor.company_name
+    
+
+        product_name =  top_selling_product['variant__product__name'] if top_selling_product else "no sales data"
+
+        data = {
+            'company_name': company_name,
+            'total_sales': total_sales,
+            'payout_recieved': payout_recieved,
+            'payout_pending': payout_pending,
+            'total_order_recieved': total_orders_recieved,
+            'completed_orders': completed_orders,
+            'cancelled_orders': cancelled_orders,
+            'pending_orders': pending_orders,
+            'top_selling_product': product_name
+        }
+
+        return data

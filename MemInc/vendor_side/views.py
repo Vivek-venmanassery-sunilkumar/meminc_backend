@@ -13,6 +13,9 @@ from authentication.permissions import IsAuthenticatedAndNotBlocked, IsVendor
 from cart_and_orders.models import OrderItems
 from vendor_side.models import ProductVariants
 from django.shortcuts import get_object_or_404
+from .serializers import VendorDashboard
+from django.utils.timezone import now
+from datetime import timedelta
 # Create your views here.
 
 class Product_create_view(APIView):
@@ -342,3 +345,53 @@ def brands_fetch(request):
         brands.add(vendor.company_name)
     
     return Response({'brands': list(brands)}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsVendor])
+def dashboardfetch(request):
+    filter_type = request.query_params.get('filter', 'daily')
+    valid_filters = ['daily', 'weekly','monthly']
+
+    if filter_type not in valid_filters:
+        return Response({'error': 'Invalid filter type. Use "daily", "weekly", or "monthly".'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    dummy_obj = {}
+    serializer = VendorDashboard(instance = dummy_obj, context = {'request': request})
+    return Response(serializer.data, status = status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsVendor])
+def order_details_salesreport(request):
+    try:
+        filter_type = request.query_params.get('filter', 'daily')
+
+        end_date = now()
+
+        output_data = []
+        if filter_type == 'daily':
+            start_date = end_date - timedelta(days = 1)
+        elif filter_type == 'weekly':
+            start_date = end_date - timedelta(weeks=1)
+        elif filter_type == 'monthly':
+            start_date = end_date - timedelta(days = 30)
+        else:
+            start_date = end_date - timedelta(days=1)
+
+        vendor = request.user.vendor_profile 
+        order_items = OrderItems.objects.filter(created_at__range = (start_date, end_date), variant__product__vendor = vendor)
+        for order_item in order_items:
+            
+            data = {
+                'id': order_item.id,
+                'vendor': order_item.variant.product.vendor.user.email,
+                'company': order_item.variant.product.vendor.company_name,
+                'quantity': order_item.quantity,
+                'status': order_item.order_item_status,
+                'vendor_amount_paid': order_item.is_payment_done_to_vendor,
+                'vendor_paid_amount': order_item.payment_done_to_vendor,
+            }
+            output_data.append(data)
+    except OrderItems.DoesNotExist:
+        return Response({'error': 'No data found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    return Response(output_data, status = status.HTTP_200_OK)

@@ -9,4 +9,6 @@ urlpatterns = [
     path('orders/', vendor_order),
     path('order-status-update/<int:order_item_id>/', vendor_order_status_update),
     path('brands/', brands_fetch),
+    path('dashboard/', dashboardfetch),
+    path('salesreport/', order_details_salesreport),
 ]
