@@ -10,7 +10,7 @@ from authentication.permissions import IsAuthenticatedAndNotBlocked,IsCustomer
 from authentication.models import CustomerAddress
 from admin_side.models import Coupon, UsedCoupon
 from decimal import Decimal
-from cart_and_orders.models import Order, OrderItems
+from cart_and_orders.models import OrderItems
 from django.utils import timezone
 
 # Create your views here.

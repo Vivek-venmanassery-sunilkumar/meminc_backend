@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
+from datetime import timedelta
 from authentication.permissions import IsAuthenticatedAndNotBlocked
 from cart_and_orders.models import OrderItems, Payments
 from rest_framework.views import APIView
@@ -16,6 +17,8 @@ from .models import Coupon
 from wallet.models import Wallet, WalletTransactionsAdmin
 from django.db import transaction
 from django.utils import timezone
+from .serializers import AdminDashboard
+from django.utils.timezone import now
 
 User = get_user_model()
 
@@ -304,3 +307,55 @@ def admin_order_status_update(request, order_item_id):
         return Response({'error': 'Order item not found'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+
+#Admin Dashboard
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def dashboardfetch(request):
+    filter_type = request.query_params.get('filter', 'daily')
+    valid_filters = ['daily', 'weekly', 'monthly']
+
+    if filter_type not in valid_filters:
+        return Response({'error': 'Invalid filter type. Use "daily", "weekly", or "monthly".'}, status=status.HTTP_400_BAD_REQUEST)
+
+    dummy_obj = {}
+    serializer = AdminDashboard(instance = dummy_obj, context= {'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def order_details_salesreport(request):
+    try:
+
+        filter_type = request.query_params.get('filter', 'daily')
+
+        end_date = now()
+        output_data = []
+        if filter_type == 'daily':
+            start_date = end_date - timedelta(days = 1)
+        elif filter_type == 'weekly':
+            start_date = end_date - timedelta(weeks=1)
+        elif filter_type == 'monthly':
+            start_date = end_date - timedelta(days = 30)
+        else:
+            start_date = end_date - timedelta(days=1)
+
+        order_items = OrderItems.objects.filter(created_at__range = (start_date, end_date))
+        for order_item in order_items:
+            data = {
+                'id': order_item.id,
+                'vendor': order_item.variant.product.vendor.user.email,
+                'company': order_item.variant.product.vendor.company_name,
+                'quantity': order_item.quantity,
+                'status': order_item.order_item_status,
+                'vendor_amount_paid': order_item.is_payment_done_to_vendor,
+                'vendor_paid_amount': order_item.payment_done_to_vendor,
+            }
+            output_data.append(data)
+    except OrderItems.DoesNotExist:
+        return Response({'error': 'No data found'}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(output_data, status=status.HTTP_200_OK)

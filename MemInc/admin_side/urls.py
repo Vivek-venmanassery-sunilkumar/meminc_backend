@@ -14,4 +14,6 @@ urlpatterns = [
     path('coupons/<int:coupon_id>/toggle/', toggle),
     path('orders/', admin_order_fetch),
     path('order-status-update/<int:order_item_id>/', admin_order_status_update),
+    path('dashboard/', dashboardfetch),
+    path('salesreport/', order_details_salesreport)
 ]
