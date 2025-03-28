@@ -15,5 +15,10 @@ urlpatterns = [
     path('orders/', admin_order_fetch),
     path('order-status-update/<int:order_item_id>/', admin_order_status_update),
     path('dashboard/', dashboardfetch),
-    path('salesreport/', order_details_salesreport)
+    path('salesreport/', order_details_salesreport),
+    path('banner/', add_banner),
+    path('fetch-banner/', banner_fetch),
+    path('banner-remove/<int:banner_id>/', banner_remove),
+    path('banner-update/<int:banner_id>/', banner_update),
 ]
+

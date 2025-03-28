@@ -34,3 +34,11 @@ class Coupon(models.Model):
 class UsedCoupon(models.Model):
     coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE)
     user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='used_coupon')
+
+
+class Banner(models.Model):
+    image = models.ImageField(upload_to='banners/', null=True, blank=True)
+    start_date = models.DateField()
+    expiry_date = models.DateField()
+    is_active = models.BooleanField()
+    is_active_admin = models.BooleanField(default = True)

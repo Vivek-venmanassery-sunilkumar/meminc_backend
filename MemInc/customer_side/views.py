@@ -182,19 +182,28 @@ def customer_order_item_cancel(request, order_id, order_item_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedAndNotBlocked])
 def product_filter_customer(request):
-    categories = request.GET.getlist('categories')
-    brands = request.GET.getlist('brands')
+    categories = []
+    if 'categories' in request.GET:
+        categories = [cat for cat in request.GET['categories'].split(',') if cat] if ',' in request.GET['categories'] else request.GET.getlist('categories')
+    
+    brands = []
+    if 'brands' in request.GET:
+        brands = [bra for bra in request.GET['brands'].split(',') if bra] if ',' in request.GET['brands'] else request.GET.getlist('brands')
     min_price = request.GET.get('min_price', 0)
-    max_price = request.GET.get('max_price', float("inf"))
-
+    max_allowed_price = 10000
+    max_price = request.GET.get('max_price', max_allowed_price)
+    search_term = request.GET.get('search', None)
     products = Products.objects.filter(is_deleted = False)
-
+    
 
     if categories:
         products = products.filter(category__id__in = categories)
     
     if brands:
         products = products.filter(vendor__company_name__in = brands)
+    
+    if search_term:
+        products = products.filter(name__icontains = search_term)
 
     variants = ProductVariants.objects.filter(
         price__gte = min_price,

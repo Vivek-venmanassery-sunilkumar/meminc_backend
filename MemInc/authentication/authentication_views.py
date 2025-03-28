@@ -7,11 +7,12 @@ from django.core.mail import send_mail
 import random
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from .models import Customer
 from django.contrib.auth import get_user_model
 from .models import Customer
 from .utils import verify_google_token
+from .permissions import IsAuthenticatedAndNotBlocked
 
 User = get_user_model()
 
@@ -339,6 +340,7 @@ class LoginView(APIView):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticatedAndNotBlocked])
 def logout(request):
     try:
         print("Inside logout")

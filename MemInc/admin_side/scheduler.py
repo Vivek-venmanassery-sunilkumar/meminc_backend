@@ -39,3 +39,4 @@ def start_scheduler():
     print(f"Scheduled jobs: {scheduler.get_jobs()}")
 
     run_missed_job()
+

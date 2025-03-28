@@ -1,4 +1,6 @@
 from rest_framework.decorators import api_view, permission_classes
+from .serializers import AdminDashboard
+from django.db.models import Q
 from datetime import timedelta
 from authentication.permissions import IsAuthenticatedAndNotBlocked
 from cart_and_orders.models import OrderItems, Payments
@@ -12,12 +14,11 @@ from django.contrib.auth import get_user_model
 from vendor_side.models import Categories
 from vendor_side.serializers import CategorySerializer
 from authentication.permissions import IsAdmin
-from .serializers import CouponSerializer
-from .models import Coupon
+from .serializers import CouponSerializer, AdminDashboard, BannerSerializer
+from .models import Coupon, Banner
 from wallet.models import Wallet, WalletTransactionsAdmin
 from django.db import transaction
 from django.utils import timezone
-from .serializers import AdminDashboard
 from django.utils.timezone import now
 
 User = get_user_model()
@@ -37,7 +38,12 @@ class CustomPagination(PageNumberPagination):
 
 @api_view(['GET'])
 def list_customer(request):
+    search_query = request.GET.get('search', '').strip()
+
     customers =Customer.objects.select_related('user').values('first_name', 'last_name', 'phone_number', 'user__id', 'user__is_blocked', 'user__email')
+
+    if search_query:
+        customers = customers.filter(Q(first_name__icontains = search_query) | Q(last_name__icontains = search_query) | Q(user__email__icontains =search_query))
     paginator = CustomPagination()
     paginated_customers =  paginator.paginate_queryset(customers, request)
     
@@ -47,7 +53,11 @@ def list_customer(request):
 
 @api_view(['GET'])
 def list_vendor(request):
+    search_query = request.GET.get('search', '').strip()
     vendors = Vendor.objects.select_related('user').values('first_name', 'last_name', 'phone_number', 'user__id', 'user__is_blocked','user__email','user__is_verified','company_name')
+
+    if search_query:
+        vendors = vendors.filter(Q(first_name__icontains = search_query) | Q(last_name__icontains = search_query) | Q(user__email__icontains = search_query))
     paginator = CustomPagination()
     paginated_vendors = paginator.paginate_queryset(vendors, request)
 
@@ -359,3 +369,63 @@ def order_details_salesreport(request):
         return Response({'error': 'No data found'}, status=status.HTTP_404_NOT_FOUND)
 
     return Response(output_data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def add_banner(request):
+    data = request.data
+    print('data for banner', data)
+
+    serializer = BannerSerializer(data = data)
+    try:
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status= status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def banner_fetch(request):
+    banners = Banner.objects.filter(is_active_admin = True)
+    response_main = [] 
+
+    for banner in banners:
+        response = {
+            'id' : banner.id,
+            'image':request.build_absolute_uri(banner.image.url),
+            'start_date' : banner.start_date,
+            'expiry_date' : banner.expiry_date,
+            'is_active' : banner.is_active,
+            'is_active_admin' :banner.is_active_admin,
+        }
+        response_main.append(response) 
+    
+    return Response(response_main, status=status.HTTP_200_OK)
+
+@api_view(['DELETE'])
+@permission_classes([IsAdmin])
+def banner_remove(request, banner_id):
+    banner = Banner.objects.get(id = banner_id)
+    banner.is_active_admin = False
+    banner.save()
+
+    return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAdmin])
+def banner_update(request, banner_id):
+    banner = Banner.objects.get(id = banner_id)
+    try:
+        banner_serializer = BannerSerializer(banner, data = request.data, partial = True)
+        if banner_serializer.is_valid():
+            banner_serializer.save()    
+            return Response(banner_serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(banner_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
