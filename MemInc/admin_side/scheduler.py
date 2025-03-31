@@ -23,8 +23,8 @@ def update_banner_status():
     update_active = Banner.objects.filter(start_date__lte = current_date, expiry_date__gte = current_date).update(is_active = True)
     update_inactive = Banner.objects.filter(expiry_date__lt = current_date).update(is_active = False)
 
-    print(f"Updated {update_active} active coupons and {update_inactive} inactive coupons.")
-    print("Successfully updated coupon statuses.")
+    print(f"Updated {update_active} active banners and {update_inactive} inactive banners.")
+    print("Successfully updated banner statuses.")
 
 def run_missed_job():
     update_coupon_status()
