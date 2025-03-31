@@ -58,7 +58,7 @@ class Order(models.Model):
                 return
             non_cancelled_items = [item for item in items if item.order_item_status != 'cancelled']
 
-            #Determin order status
+            #Determine order status
             if not non_cancelled_items:
                 self.order_status = 'cancelled'
             elif all(item.order_item_status == 'delivered' for item in non_cancelled_items):

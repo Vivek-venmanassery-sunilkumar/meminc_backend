@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice #{{ invoice_data.id }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+        .invoice-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .invoice-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        th {
+            background-color: #f8f9fa;
+            text-align: left;
+            padding: 10px;
+            border-bottom: 2px solid #ddd;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .total-section {
+            text-align: right;
+            margin-top: 20px;
+        }
+        .total-line {
+            margin-bottom: 5px;
+        }
+        .total-amount {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .discount {
+            color: #e74c3c;
+        }
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .status-cancelled {
+            background-color: #ffdddd;
+            color: #d63031;
+        }
+        .amount {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="invoice-title">INVOICE</div>
+        <div>Order #{{ invoice_data.id }}</div>
+    </div>
+
+    <div class="invoice-info">
+        <div class="info-box">
+            <div><strong>Order Date:</strong> {{ order_date }}</div>
+            <div><strong>Status:</strong> {{ order_status }}</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Status</th>
+                <th>Total Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoice_data.order_item_data %}
+            <tr>
+                <td>{{ item.product }}</td>
+                <td>{{ item.quantity }}</td>
+                <td class="amount">{{ item.price|floatformat:2 }}</td>
+                <td>
+                    <span class="status {% if item.order_item_status == 'cancelled' %}status-cancelled{% endif %}">
+                        {{ item.order_item_status|title }}
+                    </span>
+                    {% if item.order_item_status == 'cancelled' and item.refund_amount != 'No refund' %}
+                        <br>Refund: ₹{{ item.refund_amount }}
+                    {% endif %}
+                </td>
+                <td class="amount">₹{{ item.price|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total-section">
+        <div class="total-line">
+            Subtotal: ₹{{ subtotal|floatformat:2 }}
+        </div>
+        {% if invoice_data.discount_price > 0 %}
+        <div class="total-line discount">
+            Discount: -₹{{ invoice_data.discount_price|floatformat:2 }}
+        </div>
+        {% endif %}
+        <div class="total-amount">
+            Total: ₹{{ invoice_data.order_amount|floatformat:2 }}
+        </div>
+    </div>
+
+    <div class="footer">
+        Thank you for your purchase!<br>
+        If you have any questions, please contact our customer support.
+    </div>
+</body>
+</html>

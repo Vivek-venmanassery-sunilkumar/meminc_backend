@@ -337,7 +337,7 @@ def vendor_order_status_update(request, order_item_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticatedAndNotBlocked])
+# @permission_classes([IsAuthenticatedAndNotBlocked])
 def brands_fetch(request):
     vendors = Vendor.objects.all()
     brands = set()

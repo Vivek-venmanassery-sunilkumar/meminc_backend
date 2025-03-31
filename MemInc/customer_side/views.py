@@ -12,6 +12,11 @@ from admin_side.models import Coupon, UsedCoupon
 from decimal import Decimal
 from cart_and_orders.models import OrderItems
 from django.utils import timezone
+from cart_and_orders.models import Order
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from weasyprint import HTML
+from weasyprint.text.fonts import FontConfiguration
 
 # Create your views here.
 
@@ -244,3 +249,102 @@ def product_filter_customer(request):
     if paginated_products is not None:
         return paginator.get_paginated_response(paginated_products)
     return Response([])
+
+@api_view(['GET'])
+def product_fetch_non_customer(request):
+    products = Products.objects.all()
+    product_data = []
+    for product in products:
+        image_url = request.build_absolute_uri(product.product_images.first().image.url) if product.product_images.first() else None
+        variants = product.variant_profile.filter(is_deleted = False)
+        variant_data = []
+        for variant in variants:
+            variant_data.append({
+                'id': variant.id,
+                'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
+                'price': variant.price,
+                'stock': variant.stock,
+                'is_out_of_stock': variant.stock == 0,
+            })
+
+        product_data.append({
+            'id': product.id,
+            'product_name': product.name,
+            'product_image': image_url,
+            'category': product.category.category,
+            'company_name': product.vendor.company_name,
+            'variants': variant_data,
+        })
+
+    paginator = CustomPagination()
+    paginated_products = paginator.paginate_queryset(product_data, request)
+
+    if paginated_products is not None:
+        return paginator.get_paginated_response(paginated_products)
+    return Response([])
+
+
+@api_view(['GET'])
+@permission_classes([IsCustomer])
+def invoice_generate(request, order_id):
+    order = Order.objects.get(id = order_id)
+    order_items = OrderItems.objects.filter(order = order)
+
+    order_item_data = []
+    for order_item in order_items:
+        data = {
+            'id': order_item.id,
+            'product': f'{order_item.variant.product.name}, {order_item.variant.variant_unit} {order_item.variant.quantity}' if order_item.variant.variant_unit == 'packet of'
+                        else f'{order_item.variant.product.name}, {order_item.variant.quantity} {order_item.variant.variant_unit}',
+            'quantity': order_item.quantity,
+            'price': order_item.price,
+            'order_item_status': order_item.order_item_status,
+            'refund_amount': {order_item.refund_amount} if order_item.order_item_status == 'cancelled' else 'No refund',
+        }
+        order_item_data.append(data)
+    
+    invoice_data = {
+        'id': order.id,
+        'order_amount': order.final_price,
+        'discount_price': order.discount_price,
+        'order_item_data': order_item_data,
+    }
+
+    #render html template
+
+    html_string = render_to_string('customerinvoice/invoice.html', {
+        'invoice_data': invoice_data,
+        'order_date': order.created_at.strftime("%B %d, %Y"),
+        'order_status': order.order_status,
+        'subtotal': order.total_price,
+    })
+
+    
+    #create pdf
+    font_config = FontConfiguration()
+    html = HTML(string = html_string)
+    result = html.write_pdf(font_config = font_config)
+
+    #send email with pdf attachment
+    try:
+        subject = f"Your invoice for Order #{order.id}"
+        message = f"Please find attached invoice for your recent order #{order.id}." 
+        email = EmailMessage(
+            subject,
+            message,
+            'meminccorporation@gmail.com',
+            [request.user.email],
+        )
+
+        email.attach(f'invoice_{order.id}.pdf', result, 'application/pdf')
+        email.send()
+    except Exception as e:
+        return Response(
+            {'error': 'Invoice generated but failed to send email', 'details': str(e)},
+            status = status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    return Response({
+        'message': 'Invoice generated and sent successfully'
+    },status=status.HTTP_200_OK)
+

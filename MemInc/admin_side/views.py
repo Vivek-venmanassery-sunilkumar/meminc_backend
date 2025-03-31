@@ -13,7 +13,7 @@ import math
 from django.contrib.auth import get_user_model
 from vendor_side.models import Categories
 from vendor_side.serializers import CategorySerializer
-from authentication.permissions import IsAdmin
+from authentication.permissions import IsAdmin, IsCustomer
 from .serializers import CouponSerializer, AdminDashboard, BannerSerializer
 from .models import Coupon, Banner
 from wallet.models import Wallet, WalletTransactionsAdmin
@@ -388,7 +388,6 @@ def add_banner(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdmin])
 def banner_fetch(request):
     banners = Banner.objects.filter(is_active_admin = True)
     response_main = [] 
@@ -429,3 +428,4 @@ def banner_update(request, banner_id):
             return Response(banner_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

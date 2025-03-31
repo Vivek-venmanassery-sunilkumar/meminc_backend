@@ -11,6 +11,8 @@ urlpatterns = [
     path('coupons/', customer_coupons),
     path('order/<int:order_id>/item/<int:order_item_id>/cancel/', customer_order_item_cancel),
     path('filter/',product_filter_customer),
+    path('orders/invoice/<int:order_id>/', invoice_generate),
+    path('products/', product_fetch_non_customer)
 ]
 
 
