@@ -18,7 +18,7 @@ SECRET_KEY =os.environ.get('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['api.meminc.store', '13.61.7.85', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -163,10 +163,10 @@ AUTH_USER_MODEL = 'authentication.CustomUser'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173", "http://127.0.0.1:5173"
+    "http://localhost:5173", "http://127.0.0.1:5173", 'api.meminc.store', '13.61.7.85', 'meminc.store'
 ]
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173", "http://127.0.0.1:5173"
+    "http://localhost:5173", "http://127.0.0.1:5173", 'https://api.meminc.store', 'https://meminc.store'
 ]
 SESSION_COOKIE_SAMESITE = None
 
