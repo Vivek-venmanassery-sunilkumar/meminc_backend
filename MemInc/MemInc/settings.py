@@ -163,7 +163,7 @@ AUTH_USER_MODEL = 'authentication.CustomUser'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173", "http://127.0.0.1:5173", 'api.meminc.store', '13.61.7.85', 'meminc.store'
+    "http://localhost:5173", "http://127.0.0.1:5173", 'https://api.meminc.store', '13.61.7.85', 'https://www.meminc.store'
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173", "http://127.0.0.1:5173", 'https://api.meminc.store', 'https://www.meminc.store'
