@@ -166,7 +166,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173", "http://127.0.0.1:5173", 'api.meminc.store', '13.61.7.85', 'meminc.store'
 ]
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173", "http://127.0.0.1:5173", 'https://api.meminc.store', 'https://meminc.store'
+    "http://localhost:5173", "http://127.0.0.1:5173", 'https://api.meminc.store', 'https://www.meminc.store'
 ]
 SESSION_COOKIE_SAMESITE = None
 
