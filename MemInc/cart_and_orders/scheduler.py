@@ -6,6 +6,7 @@ from wallet.models import Wallet, WalletTransactionsAdmin, WalletTransactionsVen
 from datetime import timedelta
 from django.utils.timezone import now
 from decimal import Decimal
+from django.db import transaction
 User = get_user_model()
 
 
@@ -16,46 +17,49 @@ def vendor_payment_update():
     order_items = OrderItems.objects.all()
     
     admin = User.objects.get(role = 'admin')
-    for order_item in order_items:
-        if order_item.is_payment_done_to_vendor:
-            continue
-        deliver_date_time = order_item.delivered_at 
-        if not deliver_date_time:
-            continue
-        time_difference = current_date_time - deliver_date_time
 
-        if time_difference >= timedelta(minutes = 1):
 
-            vendor = order_item.variant.product.vendor.user
+    with transaction.atomic:
+        for order_item in order_items:
+            if order_item.is_payment_done_to_vendor:
+                continue
+            deliver_date_time = order_item.delivered_at 
+            if not deliver_date_time:
+                continue
+            time_difference = current_date_time - deliver_date_time
 
-            vendor_wallet,created = Wallet.objects.get_or_create(user = vendor)
-            vendor_credit_amount = order_item.price * 80 / 100
+            if time_difference >= timedelta(minutes = 1):
 
-            vendor_wallet.credit(vendor_credit_amount)
+                vendor = order_item.variant.product.vendor.user
 
-            WalletTransactionsVendor.objects.create(
-                user = vendor,
-                order_item = order_item,
-                amount = vendor_credit_amount,
-                transaction_type = 'credit',
-                transaction_through = 'wallet',
-                transacted_user = admin
-            )
+                vendor_wallet,created = Wallet.objects.get_or_create(user = vendor)
+                vendor_credit_amount = order_item.price * 80 / 100
 
-            admin_wallet,created = Wallet.objects.get_or_create(user = admin)
-            admin_wallet.debit(vendor_credit_amount)
-            
-            WalletTransactionsAdmin.objects.create(
-                user = admin,
-                amount = vendor_credit_amount,
-                transaction_type = 'debit',
-                transaction_through = 'wallet',
-                transacted_user = vendor,
-            )
-            order_item.is_payment_done_to_vendor = True
-            order_item.payment_done_to_vendor = Decimal(vendor_credit_amount)
-            order_item.save()
-            print('all work done')
+                vendor_wallet.credit(vendor_credit_amount)
+
+                WalletTransactionsVendor.objects.create(
+                    user = vendor,
+                    order_item = order_item,
+                    amount = vendor_credit_amount,
+                    transaction_type = 'credit',
+                    transaction_through = 'wallet',
+                    transacted_user = admin
+                )
+
+                admin_wallet,created = Wallet.objects.get_or_create(user = admin)
+                admin_wallet.debit(vendor_credit_amount)
+                
+                WalletTransactionsAdmin.objects.create(
+                    user = admin,
+                    amount = vendor_credit_amount,
+                    transaction_type = 'debit',
+                    transaction_through = 'wallet',
+                    transacted_user = vendor,
+                )
+                order_item.is_payment_done_to_vendor = True
+                order_item.payment_done_to_vendor = Decimal(vendor_credit_amount)
+                order_item.save()
+                print('all work done')
         
 
     orders = Order.objects.all()

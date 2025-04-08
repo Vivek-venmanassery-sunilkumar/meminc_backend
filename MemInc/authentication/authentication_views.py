@@ -24,6 +24,8 @@ class GoogleLoginView(APIView):
         if not token:
             return Response({'error': 'Google token is required'}, status=status.HTTP_400_BAD_REQUEST)
         
+        
+        
         # Verify Google token
         google_user_data = verify_google_token(token)
         if not google_user_data:
