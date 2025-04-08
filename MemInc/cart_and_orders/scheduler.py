@@ -104,7 +104,8 @@ def start_scheduler_for_vendor_payment_update():
         'interval',
         minutes = 1,
         id = 'vendor_payment_update',
-        replace_existing=True
+        replace_existing=True,
+        max_instances = 1
     )
 
     scheduler.start()
