@@ -67,20 +67,14 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ['name','category','description', 'images', 'variants']
 
     def validate_description(self, value):
-        min_length = 50
-        max_length = 1000
+        min_length = 10
+        max_length = 10000
 
         if len(value) < min_length:
             raise serializers.ValidationError(f"Description must be at lease {min_length} characters long.")
 
         if len(value)>max_length:
             raise serializers.ValidationError(f"Description must be less than {max_length} characters long.")
-        
-        if re.search(r"(https?://|www\.)",value) or re.search(r"[a-zA-Z0-9,_%+-]+@[a-zA-Z]{2,}",value):
-            raise serializers.ValidationError(f"Description cannot conatain links or email addresses")
-        
-        if not re.search(r"[A-Za-z0-9,;'\'\-\(\)]+[.!?]", value):
-            raise serializers.ValidationError("Descripton must be in complete sentences.")
         
         return value
 

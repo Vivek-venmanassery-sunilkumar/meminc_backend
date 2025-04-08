@@ -25,7 +25,7 @@ class ProductVariants(models.Model):
     product = models.ForeignKey(Products, on_delete=models.CASCADE, related_name='variant_profile')
     quantity = models.IntegerField()
     variant_unit = models.CharField(max_length=10, default = 'kg')
-    price = models.DecimalField(decimal_places=2, max_digits=5)
+    price = models.DecimalField(decimal_places=2, max_digits=10)
     stock = models.IntegerField()
     is_deleted= models.BooleanField(default = False)
 
