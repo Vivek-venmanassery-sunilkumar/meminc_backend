@@ -130,7 +130,7 @@ class RegisterCustomer(APIView):
             'attempts': 1
         }
 
-        cache.set(cache_key,cache_data, timeout=120)
+        cache.set(cache_key,cache_data, timeout=300)
 
         send_mail(
             'Verify your Email',
@@ -162,7 +162,7 @@ class RegisterVendor(APIView):
             'role': 'vendor',
             'attempts': 1
         }
-        cache.set(cache_key, cache_data, timeout=120)
+        cache.set(cache_key, cache_data, timeout=300)
 
         send_mail(
             'Verify Your Email',
@@ -212,7 +212,7 @@ class ResendOtp(APIView):
                 'role': 'vendor',
                 'attempts':attempts + 1
             }
-        cache.set(cache_key, new_cache_data, timeout=120)
+        cache.set(cache_key, new_cache_data, timeout=300)
 
         send_mail(
             'Verify your Email',
