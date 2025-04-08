@@ -65,6 +65,9 @@ class WalletTransactionsAdmin(models.Model):
         return f"{self.user.email} - {self.transaction_type} -₹{self.amount}"
 
 class WalletTransactionsVendor(models.Model):
+    class Meta:
+        unique_together = ('order_item', 'transaction_type')
+
     Transaction_Types = [
         ('credit','Credit')
     ]
