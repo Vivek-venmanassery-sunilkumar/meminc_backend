@@ -19,7 +19,7 @@ def vendor_payment_update():
     admin = User.objects.get(role = 'admin')
 
 
-    with transaction.atomic:
+    with transaction.atomic():
         for order_item in order_items:
             if order_item.is_payment_done_to_vendor:
                 continue
