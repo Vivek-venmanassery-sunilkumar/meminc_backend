@@ -28,26 +28,27 @@ def product_listing_customer_side(request):
     product_data = []
     for product in products:
         if product.is_deleted == False:
-            image_url = request.build_absolute_uri(product.product_images.first().image.url) 
-            variants = product.variant_profile.all()
-            variant_data = []
-            for variant in variants:
-                if variant.is_deleted == False:
-                    variant_data.append({
-                        'id': variant.id,
-                        'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
-                        'price': variant.price,
-                        'stock': variant.stock,
-                        'is_out_of_stock': variant.stock == 0,
-                    })
-            product_data.append({
-                'id':product.id,
-                'product_name':product.name,
-                'product_image':image_url,
-                'category': product.category.category,
-                'company_name': product.vendor.company_name,
-                'variants': variant_data
-            })
+            if product.category.is_enabled: 
+                image_url = request.build_absolute_uri(product.product_images.first().image.url) 
+                variants = product.variant_profile.all()
+                variant_data = []
+                for variant in variants:
+                    if variant.is_deleted == False:
+                        variant_data.append({
+                            'id': variant.id,
+                            'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
+                            'price': variant.price,
+                            'stock': variant.stock,
+                            'is_out_of_stock': variant.stock == 0,
+                        })
+                product_data.append({
+                    'id':product.id,
+                    'product_name':product.name,
+                    'product_image':image_url,
+                    'category': product.category.category,
+                    'company_name': product.vendor.company_name,
+                    'variants': variant_data
+                })
 
 
     paginator = CustomPagination()
