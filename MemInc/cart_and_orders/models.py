@@ -14,7 +14,7 @@ class Cart(models.Model):
     user= models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='cart')
 
     def calculate_total_price(self):
-        total_price = sum(item.variant.price * item.quantity for item in self.items.all())
+        total_price = sum(item.variant.price * item.quantity for item in self.items.filter(variant__product__is_deleted=False, variant__product__is_blocked= False))
         return total_price
 
 

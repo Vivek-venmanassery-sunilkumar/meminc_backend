@@ -20,5 +20,7 @@ urlpatterns = [
     path('fetch-banner/', banner_fetch),
     path('banner-remove/<int:banner_id>/', banner_remove),
     path('banner-update/<int:banner_id>/', banner_update),
+    path('products-fetch/', admin_product_fetch),
+    path('block-product/<int:product_id>/', admin_product_block)
 ]
 

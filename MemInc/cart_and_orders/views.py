@@ -42,18 +42,18 @@ class CartDetails(APIView):
             image_url =request.build_absolute_uri(product_image.image.url) if product_image else None
             variant_name = f"{variant.variant_unit} {variant.quantity}" if variant.variant_unit == 'packet of' else f"{variant.quantity} {variant.variant_unit}"
 
-
-            item_data = {
-                'variant_id': variant.id,
-                'product_id': product.id,
-                'product_name': product.name,
-                'product_image': image_url,
-                'variant_name':variant_name,
-                'price': str(variant.price),
-                'quantity': item.quantity,
-                'brand': vendor.company_name
-            }
-            items_data.append(item_data)
+            if not product.is_blocked and not product.is_deleted:
+                item_data = {
+                    'variant_id': variant.id,
+                    'product_id': product.id,
+                    'product_name': product.name,
+                    'product_image': image_url,
+                    'variant_name':variant_name,
+                    'price': str(variant.price),
+                    'quantity': item.quantity,
+                    'brand': vendor.company_name
+                }
+                items_data.append(item_data)
 
         total_price = cart.calculate_total_price()
 

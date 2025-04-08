@@ -98,7 +98,8 @@ def product_listing_vendor(request):   #This get method is used to call all not 
             'product_name':product.name,
             'product_image':image_url,
             'category': product.category.category,
-            'variants': variant_data
+            'variants': variant_data,
+            'is_blocked': product.is_blocked,
         })
 
 

@@ -20,6 +20,7 @@ from wallet.models import Wallet, WalletTransactionsAdmin
 from django.db import transaction
 from django.utils import timezone
 from django.utils.timezone import now
+from vendor_side.models import Products
 
 User = get_user_model()
 
@@ -429,3 +430,58 @@ def banner_update(request, banner_id):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_product_fetch(request):
+    
+    products = Products.objects.filter(is_deleted = False)
+    
+    product_data = []
+    
+    for product in products:
+        product_image_instance = product.product_images.first()
+        image_url = request.build_absolute_uri(product_image_instance.image.url)
+        variants = product.variant_profile.filter(is_deleted = False)
+        variant_data = []
+        for variant in variants:
+            if not variant.variant_unit == 'packet of':
+                variant_name = f'{variant.quantity} {variant.variant_unit}'
+            else:
+                variant_name = f'{variant.variant_unit} {variant.quantity}'
+            variant_data.append({
+                'id': variant.id,
+                'name': variant_name,
+                'price': variant.price,
+                'stock': variant.stock
+            })
+        product_data.append({
+            'id':product.id,
+            'brand': product.vendor.company_name,
+            'product_name':product.name,
+            'product_image':image_url,
+            'category': product.category.category,
+            'variants': variant_data,
+            'is_blocked':product.is_blocked 
+        })
+
+
+    paginator = CustomPagination()
+    paginated_products = paginator.paginate_queryset(product_data, request)
+
+    if paginated_products is not None:
+        return paginator.get_paginated_response(paginated_products)
+    return Response([])
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def admin_product_block(request, product_id):
+    try:
+        product = Products.objects.get(id = product_id)
+        product.is_blocked = not product.is_blocked
+        product.save()
+        return Response({'status': 'success', 'is_blocked': product.is_blocked}, status=status.HTTP_200_OK)
+    except Products.DoesNotExist:
+        return Response({'status': 'failure'}, status=status.HTTP_404_NOT_FOUND)

@@ -27,7 +27,7 @@ def product_listing_customer_side(request):
 
     product_data = []
     for product in products:
-        if product.is_deleted == False:
+        if product.is_deleted == False and product.is_blocked == False:
             if product.category.is_enabled: 
                 image_url = request.build_absolute_uri(product.product_images.first().image.url) 
                 variants = product.variant_profile.all()
