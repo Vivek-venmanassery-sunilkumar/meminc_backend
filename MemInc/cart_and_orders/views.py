@@ -120,7 +120,9 @@ class CartDetails(APIView):
         return Response(response_data, status = status.HTTP_200_OK)
     
     def delete(self, request, variant_id):
-        cart_item = CartItems.objects.get(variant_id = variant_id)
+        cart = Cart.objects.get(user = request.user)
+        
+        cart_item = CartItems.objects.get(variant_id = variant_id, cart = cart)
 
         cart_item.delete()
         return Response({'message': 'Item removed from cart'}, status = status.HTTP_200_OK)
