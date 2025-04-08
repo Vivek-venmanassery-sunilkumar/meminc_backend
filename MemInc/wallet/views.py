@@ -76,6 +76,7 @@ def customer_wallet_credit_callback(request):
             amount = Decimal(amount),
             transaction_id = razorpay_payment_id
         )
+        wallet_transaction.save()
 
         return Response({'success': True, 'wallet_balance': wallet.balance}, status=status.HTTP_200_OK)
     
