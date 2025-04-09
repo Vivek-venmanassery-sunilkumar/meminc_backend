@@ -291,7 +291,8 @@ def vendor_order(request):
                     'state': shipping_address.state,
                     'country': shipping_address.country,
                     'pincode':shipping_address.pincode,
-                }
+                },
+                'is_payment_done_to_vendor': item.is_payment_done_to_vendor,
             }
             response_data_orders.append(response_data_order)
     
