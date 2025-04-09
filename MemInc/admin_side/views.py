@@ -286,8 +286,8 @@ def admin_order_status_update(request, order_item_id):
 
 
                 #handle COD payment completion
-                if payment.payment_method == 'cod' and payment.pament_status == 'pending':
-                    non_cancelled_items = order.order_items.exclude(order_item_status = 'cancelled')
+                if payment.payment_method == 'cod' and payment.payment_status == 'pending':
+                    non_cancelled_items = order.order_items.exclude(order_item_status = 'cancelled', id = order_item.id)
                     if all(item.order_item_status == 'delivered' for item in non_cancelled_items):
                         payment.payment_status = 'completed'
                         payment.save()
@@ -298,7 +298,8 @@ def admin_order_status_update(request, order_item_id):
                             user = admin,
                             amount = order.final_price,
                             transaction_type = 'credit',
-                            transacted_user = order.customer.user
+                            transacted_user = order.customer.user,
+                            transaction_through = 'cash'
                         )
 
                 return Response({'success': True}, status = status.HTTP_200_OK)
