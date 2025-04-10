@@ -43,11 +43,13 @@ class Order(models.Model):
     final_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     order_status = models.CharField(max_length=100,default='Processing')
+    delivered_at = models.DateTimeField(blank= True, null=True)
     
     
     def save(self, *args, **kwargs):
         self.final_price = self.total_price-self.discount_price
         super().save(*args, **kwargs)
+
 
     def update_order_status(self):
         with transaction.atomic():
@@ -63,12 +65,14 @@ class Order(models.Model):
                 self.order_status = 'cancelled'
             elif all(item.order_item_status == 'delivered' for item in non_cancelled_items):
                 self.order_status = 'delivered'
+                print('am i here: trying to update delivered_at')
+                self.delivered_at = timezone.now()
             elif all(item.order_item_status == 'dispatched' for item in non_cancelled_items):
                 self.order_status = 'dispatched'
             else:
                 self.order_status = 'Processing'
             
-            self.save(update_fields = ['order_status'])
+            self.save(update_fields = ['order_status', 'delivered_at'])
     
     def process_refund(self, order_item):
 

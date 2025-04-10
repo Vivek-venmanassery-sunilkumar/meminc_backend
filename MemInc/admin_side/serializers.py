@@ -110,7 +110,7 @@ class AdminDashboard(serializers.Serializer):
             start_date = end_date - timedelta(days=1)
 
         
-        total_revenue = Order.objects.filter(created_at__range=(start_date, end_date), order_status = 'delivered').aggregate(total = Sum('final_price'))['total'] or 0
+        total_revenue = Order.objects.filter(delivered_at__range=(start_date, end_date), order_status = 'delivered').aggregate(total = Sum('final_price'))['total'] or 0
         total_commission_earned = CommissionRecievedAdminPerOrder.objects.filter(timestamp__range = (start_date, end_date)).aggregate(total = Sum('commission_kept'))['total'] or 0
         total_vendor_earnings = WalletTransactionsVendor.objects.filter(timestamp__range = (start_date, end_date)).aggregate(total = Sum('amount'))['total'] or 0
         total_customers_active = CustomUser.objects.filter(role= 'customer', is_active = True).count() or 0
