@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Coupon, Banner
 from django.utils.timezone import now
-from datetime import timedelta
+from datetime import timedelta, datetime
 from cart_and_orders.models import Order, OrderItems
 from wallet.models import CommissionRecievedAdminPerOrder, WalletTransactionsVendor
 from authentication.models import CustomUser
@@ -99,13 +99,23 @@ class AdminDashboard(serializers.Serializer):
         request = self.context.get('request')
         filter_type = request.query_params.get('filter', 'daily')
 
-        end_date = now()
         if filter_type == 'daily':
+            end_date = now()
             start_date = end_date - timedelta(days = 1)
         elif filter_type == 'weekly':
+            end_date = now()
             start_date = end_date - timedelta(weeks=1)
         elif filter_type == 'monthly':
+            end_date = now()
             start_date = end_date - timedelta(days = 30)
+        elif filter_type == 'custom':
+            end_date_str = request.query_params.get('end_date')
+            start_date_str = request.query_params.get('start_date')
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1)  # include full end date
+            except (TypeError, ValueError):
+                start_date = end_date = None
         else:
             start_date = end_date - timedelta(days=1)
 

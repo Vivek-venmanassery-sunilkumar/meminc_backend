@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from .serializers import AdminDashboard
 from django.db.models import Q
-from datetime import timedelta
+from datetime import timedelta, datetime
 from authentication.permissions import IsAuthenticatedAndNotBlocked
 from cart_and_orders.models import OrderItems, Payments
 from rest_framework.views import APIView
@@ -328,10 +328,10 @@ def admin_order_status_update(request, order_item_id):
 @permission_classes([IsAdmin])
 def dashboardfetch(request):
     filter_type = request.query_params.get('filter', 'daily')
-    valid_filters = ['daily', 'weekly', 'monthly']
+    valid_filters = ['daily', 'weekly', 'monthly', 'custom']
 
     if filter_type not in valid_filters:
-        return Response({'error': 'Invalid filter type. Use "daily", "weekly", or "monthly".'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Invalid filter type. Use "daily", "weekly", or "monthly" or "custom".'}, status=status.HTTP_400_BAD_REQUEST)
 
     dummy_obj = {}
     serializer = AdminDashboard(instance = dummy_obj, context= {'request': request})
@@ -344,14 +344,21 @@ def order_details_salesreport(request):
 
         filter_type = request.query_params.get('filter', 'daily')
 
-        end_date = now()
         output_data = []
         if filter_type == 'daily':
+            end_date = now()
             start_date = end_date - timedelta(days = 1)
         elif filter_type == 'weekly':
+            end_date = now()
             start_date = end_date - timedelta(weeks=1)
         elif filter_type == 'monthly':
+            end_date = now()
             start_date = end_date - timedelta(days = 30)
+        elif filter_type == 'custom':
+            end_date_str = request.query_params.get('end_date')
+            start_date_str = request.query_params.get('start_date') 
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1)
         else:
             start_date = end_date - timedelta(days=1)
 
