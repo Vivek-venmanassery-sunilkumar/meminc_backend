@@ -15,7 +15,7 @@ from vendor_side.models import Categories
 from vendor_side.serializers import CategorySerializer
 from authentication.permissions import IsAdmin, IsCustomer
 from .serializers import CouponSerializer, AdminDashboard, BannerSerializer
-from .models import Coupon, Banner
+from .models import Coupon, Banner, Notification, NotificationReadStatus
 from wallet.models import Wallet, WalletTransactionsAdmin
 from django.db import transaction
 from django.utils import timezone
@@ -493,3 +493,81 @@ def admin_product_block(request, product_id):
         return Response({'status': 'success', 'is_blocked': product.is_blocked}, status=status.HTTP_200_OK)
     except Products.DoesNotExist:
         return Response({'status': 'failure'}, status=status.HTTP_404_NOT_FOUND)
+
+    
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedAndNotBlocked])
+def unread_notification_fetch(request):
+    user = request.user
+    unread_notification_objects = NotificationReadStatus.objects.filter(user = user, is_read = False).order_by('-notification__created_at')
+
+    unread_notifications = []
+    for notification in unread_notification_objects:
+        unread_notification = {'id': notification.id, 'message': notification.notification.message}
+
+        unread_notifications.append(unread_notification)
+
+    return Response(unread_notifications, status=status.HTTP_200_OK)
+    
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def notification_add(request):
+    message = request.data.get('message')
+    directed_towards = request.data.get('directed_to')
+
+    if not message or not directed_towards:
+        return Response({'error': 'Both "message" and "directed_to" are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if directed_towards.lower() not in ['customer', 'vendor', 'all']:
+        return Response({'error': 'The message should be directed towareds customer, vendor or both.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    notification = Notification.objects.create(message = message, directed_towards = directed_towards)
+
+    match directed_towards:
+        case 'customer':
+            customers = User.objects.filter(role = 'customer')
+
+            for customer in customers:
+                NotificationReadStatus.objects.create(user = customer, notification = notification, is_read = False)
+
+        case 'vendor':
+            vendors = User.objects.filter(role = 'vendor')
+
+            for vendor in vendors:
+                NotificationReadStatus.objects.create(user = vendor, notification = notification, is_read = False)
+            
+        case 'all':
+            users = User.objects.exclude(role = 'admin')
+
+            for user in users:
+                NotificationReadStatus.objects.create(user = user, notification = notification, is_read = False)
+            
+    return Response({'success': True}, status=status.HTTP_200_OK) 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedAndNotBlocked])
+def notification_read(request, notification_id):
+    read_status = NotificationReadStatus.objects.get(id = notification_id)
+
+    read_status.is_read = True
+
+    read_status.save()
+    return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_notification_fetch(request):
+    notifications = Notification.objects.all()
+    response = []
+    for notification in notifications:
+        response_data = {
+            'id': notification.id,
+            'message': notification.message,
+            'directed_towards': notification.directed_towards,
+            'created_at': notification.created_at,
+        }
+        response.append(response_data)
+
+    return Response(response, status=status.HTTP_200_OK) 

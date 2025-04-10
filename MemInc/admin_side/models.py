@@ -42,3 +42,19 @@ class Banner(models.Model):
     expiry_date = models.DateField()
     is_active = models.BooleanField()
     is_active_admin = models.BooleanField(default = True)
+
+class Notification(models.Model):
+    USER_TYPE_CHOICES = [
+        ('customer', 'Customer'),
+        ('vendor', 'Vendor'),
+        ('all', 'ALL'),
+    ]
+    message = models.CharField(max_length=200)
+    directed_towards = models.CharField(max_length=20, choices=USER_TYPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class NotificationReadStatus(models.Model):
+    user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='user_notifications')
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    is_read = models.BooleanField(default=False)
