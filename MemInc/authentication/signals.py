@@ -9,7 +9,7 @@ from django.conf import settings
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
 
     # the below like concatinates your websites reset password url and the reset email token which will be required at a later stage
-    reset_url= f"http://localhost:5173/reset-password/?token={reset_password_token.key}"
+    reset_url= f"https://www.meminc.store/reset-password/?token={reset_password_token.key}"
     print('user email to send link', reset_password_token.user.email)
     
     email_plaintext_message = f"""
