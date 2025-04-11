@@ -223,26 +223,27 @@ def product_filter_customer(request):
 
     product_data = []
     for product in products:
-        image_url = request.build_absolute_uri(product.product_images.first().image.url) if product.product_images.first() else None
-        variants = product.variant_profile.filter(is_deleted = False)
-        variant_data = []
-        for variant in variants:
-            variant_data.append({
-                'id': variant.id,
-                'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
-                'price': variant.price,
-                'stock': variant.stock,
-                'is_out_of_stock': variant.stock == 0,
-            })
+        if not product.is_blocked and not product.is_deleted:
+            image_url = request.build_absolute_uri(product.product_images.first().image.url) if product.product_images.first() else None
+            variants = product.variant_profile.filter(is_deleted = False)
+            variant_data = []
+            for variant in variants:
+                variant_data.append({
+                    'id': variant.id,
+                    'name': f'{variant.variant_unit} {variant.quantity}' if variant.variant_unit == 'packet of' else f'{variant.quantity} {variant.variant_unit}',
+                    'price': variant.price,
+                    'stock': variant.stock,
+                    'is_out_of_stock': variant.stock == 0,
+                })
 
-        product_data.append({
-            'id': product.id,
-            'product_name': product.name,
-            'product_image': image_url,
-            'category': product.category.category,
-            'company_name': product.vendor.company_name,
-            'variants': variant_data,
-        })
+            product_data.append({
+                'id': product.id,
+                'product_name': product.name,
+                'product_image': image_url,
+                'category': product.category.category,
+                'company_name': product.vendor.company_name,
+                'variants': variant_data,
+            })
 
     paginator = CustomPagination()
     paginated_products = paginator.paginate_queryset(product_data, request)
