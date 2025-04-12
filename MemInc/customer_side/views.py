@@ -17,6 +17,7 @@ from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from weasyprint import HTML
 from weasyprint.text.fonts import FontConfiguration
+from django.db import transaction
 
 # Create your views here.
 
@@ -175,13 +176,17 @@ def customer_coupons(request):
 @permission_classes([IsCustomer])
 def customer_order_item_cancel(request, order_id, order_item_id):
     customer = request.user.customer_profile
-    order_item = OrderItems.objects.get(id = order_item_id)
-    cancellation_reason = request.data.get('cancellation_reason')
+    with transaction.atomic():
+        order_item = OrderItems.objects.get(id = order_item_id)
+        cancellation_reason = request.data.get('cancellation_reason')
 
-    order_item.order_item_status = 'cancelled'
-    order_item.cancel_reason = f"{cancellation_reason} - cancelled by {customer.first_name}"
-    order_item.cancel_time = timezone.now()
-    order_item.save()
+        order_item.order_item_status = 'cancelled'
+        order_item.cancel_reason = f"{cancellation_reason} - cancelled by {customer.first_name}"
+        order_item.cancel_time = timezone.now()
+        order_item.save()
+        variant = order_item.variant
+        variant.stock -=1
+        variant.save()
     return Response({'success': True}, status = status.HTTP_200_OK)
 
 
