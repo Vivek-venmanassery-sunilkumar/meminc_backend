@@ -185,7 +185,7 @@ def customer_order_item_cancel(request, order_id, order_item_id):
         order_item.cancel_time = timezone.now()
         order_item.save()
         variant = order_item.variant
-        variant.stock -=1
+        variant.stock +=1
         variant.save()
     return Response({'success': True}, status = status.HTTP_200_OK)
 
